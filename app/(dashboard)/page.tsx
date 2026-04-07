@@ -1,7 +1,8 @@
 import { createClient } from "@/lib/supabase/server"
 import { formatCurrency } from "@/lib/pricing"
-import { AlertTriangle, Camera, Users, TrendingUp } from "lucide-react"
+import { AlertTriangle, Camera, Users } from "lucide-react"
 import { TrendSection } from "@/components/charts/trend-section"
+import { UnifiedCalendar } from "@/components/dashboard/unified-calendar"
 
 async function getDashboardStats() {
   const supabase = await createClient()
@@ -118,8 +119,14 @@ function pct(a: number, b: number) {
   return { value: Math.abs(p).toFixed(0) + "%", trend: p >= 0 ? ("up" as const) : ("down" as const) }
 }
 
+async function getContacts() {
+  const supabase = await createClient()
+  const { data } = await supabase.from("contacts").select("id, name").order("name")
+  return data ?? []
+}
+
 export default async function HomePage() {
-  const [stats, shoots] = await Promise.all([getDashboardStats(), getUpcomingShoots()])
+  const [stats, shoots, contacts] = await Promise.all([getDashboardStats(), getUpcomingShoots(), getContacts()])
 
   const revTrend = pct(stats.revenue_mtd, stats.revenue_last_month)
   const shootTrend = pct(stats.shoots_mtd, stats.shoots_last_month)
@@ -224,6 +231,12 @@ export default async function HomePage() {
             view shoots →
           </a>
         </div>
+      </div>
+
+      {/* Unified Calendar */}
+      <div>
+        <p className="spatia-label text-xs text-muted-foreground mb-3">calendar</p>
+        <UnifiedCalendar contacts={contacts} />
       </div>
 
       {/* Alerts */}
