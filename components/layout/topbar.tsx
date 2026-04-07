@@ -31,7 +31,7 @@ export function Topbar() {
   })
 
   return (
-    <header className="h-14 border-b border-border flex items-center justify-between px-6 bg-background/80 backdrop-blur-sm sticky top-0 z-10">
+    <header className="hidden md:flex h-14 border-b border-border items-center justify-between px-6 bg-background/80 backdrop-blur-sm sticky top-0 z-10">
       <h2 className="spatia-label">{title}</h2>
       <span className="spatia-label">{dateStr}</span>
     </header>

@@ -1,6 +1,6 @@
 # CLAUDE.md — Spatia Growth Command Center
 
-> Save this file as `CLAUDE.md` at the root of your project. Claude Code reads it automatically on every session.
+> **Save this file as `CLAUDE.md` at the root of your project. Claude Code reads it automatically on every session.**
 
 ---
 
@@ -15,7 +15,6 @@ This is not a toy project. This is a revenue-generating operations platform for 
 ## BRAND IDENTITY — MEMORIZE THIS
 
 ### Company
-
 - **Legal name**: Studio Spatia (sole proprietorship, NEQ 2281954034)
 - **Trade name**: Spatia
 - **Domain**: spatia.ca
@@ -26,30 +25,26 @@ This is not a toy project. This is a revenue-generating operations platform for 
 - **Language**: Bilingual French/English. French-first (Quebec Bill 96 compliance). All outreach in French unless agent is clearly anglophone.
 
 ### Core Service
-
 Matterport-processed 3D virtual tours for real estate listings. Shot with Ricoh Theta Z1. Same-day delivery is the key differentiator. Future upsells: CubiCasa ANSI floor plans, Gaussian splatting premium tours.
 
 ### Pricing (CONFIDENTIAL — never expose full grid publicly)
-
-| Tier   | Sq ft               | Regular | Beta (first 5 clients) |
-|--------|---------------------|---------|------------------------|
-| 1      | ≤1,500              | $150    | PRIVATE                |
-| 2      | 1,500–2,500         | $200    | PRIVATE                |
-| 3      | 2,500–3,500         | $275    | PRIVATE                |
-| 4      | 3,500+              | $350    | PRIVATE                |
-| Rush   | Same-day            | +$50    | +$50                   |
-| Travel | >30km from Brossard | +$25    | +$25                   |
+| Tier | Sq ft | Regular | Beta (first 5 clients) |
+|------|--------|---------|----------------------|
+| 1 | ≤1,500 | $150 | PRIVATE |
+| 2 | 1,500–2,500 | $200 | PRIVATE |
+| 3 | 2,500–3,500 | $275 | PRIVATE |
+| 4 | 3,500+ | $350 | PRIVATE |
+| Rush | Same-day | +$50 | +$50 |
+| Travel | >30km from Brossard | +$25 | +$25 |
 
 Free trial shoots: invoice at full price with 100% discount applied (anchors perceived value). Website only shows "starting at" anchor.
 
 ### Visual Identity
-
 - **Aesthetic**: Brutalist/editorial. Lowercase typography. Concrete-heavy, moody, film-analog references (Kodak Portra 400, Ilford HP5). Asymmetric compositions.
 - **Logo**: Serif "S" icon (app icon style) + "spatia" wordmark in spaced lowercase serif. Black on white, white on black.
-- **Dashboard aesthetic**: The dashboard itself should reflect this identity — dark mode default, serif accent typography, clean data visualization, editorial feel. NOT generic SaaS blue. Think: if Bloomberg Terminal had a baby with a Kinfolk magazine layout.
+- **Dashboard aesthetic**: Dark mode default, serif accent typography, clean data visualization, editorial feel. NOT generic SaaS blue. Think: Bloomberg Terminal meets Kinfolk magazine.
 
 ### Positioning Principles (CRITICAL — inform all copy and outreach)
-
 1. **Never signal inexperience.** Spatia presents as a busy, selective studio — never as "new" or "building a portfolio."
 2. **Speed is the weapon.** Same-day delivery kills competitors who take 48–72h.
 3. **Geographic ownership.** South Shore is home turf. Panosphere does commercial/institutional; Spatia owns the individual agent niche.
@@ -59,66 +54,86 @@ Free trial shoots: invoice at full price with 100% discount applied (anchors per
 7. **Positioning over discounting.** Never compete on price alone.
 
 ### Competitors (for reference, not for public mention)
-
-- EGP Photographie — generalist real estate media
-- Panosphere 360 Boucherville — commercial/institutional focus
-- photographieimmobiliere.com — established but not Matterport-native
+- **EGP Photographie** — generalist real estate media
+- **Panosphere 360 Boucherville** — commercial/institutional focus
+- **photographieimmobiliere.com** — established but not Matterport-native
 - Spatia's structural advantage: lower overhead + same Matterport platform = competitive pricing without margin sacrifice.
 
 ---
 
 ## EXISTING TOOL STACK — INTEGRATE WITH THESE
 
-| Tool                            | Purpose                             | Integration Priority                          |
-|---------------------------------|-------------------------------------|-----------------------------------------------|
-| **Supabase**                    | Database + Auth + Realtime          | PRIMARY — all dashboard data lives here       |
-| **Zoho Mail**                   | Email (SMTP: smtp.zoho.com)         | Send/receive outreach emails                  |
-| **n8n** (lucanvc.app.n8n.cloud) | Automation orchestration            | Trigger/receive webhooks, run background jobs |
-| **Google Sheets**               | Current CRM (to be migrated)        | Import existing contacts, then deprecate      |
-| **Wave**                        | Invoicing + bookkeeping             | Read invoice data via CSV export (no API)     |
-| **Formspree**                   | Quote form intake                   | Webhook to Supabase                           |
-| **Realtor.ca**                  | Agent sourcing + listing monitoring | Scraping for lead gen + sold detection        |
-| **Cloudflare R2**               | Video/asset storage                 | Serve media assets                            |
-| **Matterport**                  | 3D tour platform                    | Track active/archived tours, slot management  |
-| **Instagram**                   | @spatia.ca                          | Content calendar + analytics tracking         |
-| **Netlify**                     | Current website hosting             | May migrate dashboard here or separate VPS    |
+| Tool | Purpose | Integration Priority |
+|------|---------|---------------------|
+| **Supabase** | Database + Auth + Realtime | PRIMARY — all dashboard data lives here |
+| **Zoho Mail** | Email (SMTP: smtp.zoho.com) | Send outreach emails via Nodemailer |
+| **Google Sheets** | Current CRM (to be migrated) | Import existing contacts, then deprecate |
+| **Wave** | Invoicing + bookkeeping | Read invoice data via CSV export (no API) |
+| **Formspree** | Quote form intake | Webhook to Supabase |
+| **Realtor.ca** | Agent sourcing + listing monitoring | Scraping for lead gen + sold detection |
+| **Cloudflare R2** | Video/asset storage | Serve media assets |
+| **Matterport** | 3D tour platform | Track active/archived tours, slot management |
+| **Instagram** | @spatia.ca | Content calendar + analytics tracking |
+
+### What we are NOT using
+- **No n8n** — all automation is built-in via Next.js API routes + node-cron
+- **No Anthropic API** — no runtime AI calls. Email drafting, captions, analysis are done manually in Claude.ai by Luca. The dashboard is a pure data + operations tool.
+- **No external automation platforms** — everything runs inside the Next.js app
 
 ---
 
-## ARCHITECTURE DECISIONS
+## ARCHITECTURE
 
 ### Stack
-
 ```
 Frontend:  Next.js 14+ (App Router) + Tailwind CSS + shadcn/ui
 Backend:   Next.js API routes + Supabase (Postgres + Auth + Realtime)
-ORM:       Drizzle or Prisma (your choice, be consistent)
+ORM:       Drizzle or Prisma (be consistent)
 Charts:    Recharts or Tremor
-Auth:      Supabase Auth (email/password, single user for now)
+Auth:      Supabase Auth (email/password, single user)
 Hosting:   Local dev → deploy to Railway/Fly.io/VPS when ready
-Automation: n8n webhooks for background jobs
-Email:     Nodemailer with Zoho SMTP for sending; webhook receiver for replies
-Scraping:  Cheerio + fetch for Realtor.ca (respect rate limits, no aggressive scraping)
-AI:        Anthropic API (Claude) for email drafting, lead scoring, copy generation
+Email:     Nodemailer with Zoho SMTP
+Scraping:  Cheerio + fetch for Realtor.ca (respect rate limits)
+Scheduling: node-cron for all background jobs (runs while server is up)
+```
+
+### Built-in Automation (replaces n8n entirely)
+All automation lives as Next.js API routes + node-cron jobs in `/lib/cron/`:
+
+```
+/lib/cron/index.ts              — Registers all cron jobs on server start
+/lib/cron/listing-monitor.ts    — Daily 2am: check if listings tied to active tours are sold
+/lib/cron/followup-reminder.ts  — Daily 9am: flag contacts due for follow-up
+/lib/cron/analytics-snapshot.ts — Daily 11:59pm: aggregate daily metrics into analytics_daily
+/lib/cron/tour-slot-check.ts    — Daily 6am: count active Matterport tours vs plan limit
+/lib/cron/tax-threshold.ts      — Weekly Monday 8am: check cumulative revenue vs $30K threshold
+/lib/cron/invoice-overdue.ts    — Daily 8am: find overdue unpaid invoices
+
+/api/webhooks/form-submission    — POST: intake from Formspree quote form
+/api/cron/trigger/[job]          — GET (auth required): manually trigger any cron job
+/api/contacts/import             — POST: CSV upload, parse, deduplicate, insert
 ```
 
 ### Database Schema (Supabase/Postgres)
-
-Design these core tables. Use proper foreign keys, indexes, and RLS policies:
+Core tables with proper foreign keys, indexes, and RLS policies:
 
 ```
-contacts          — All leads/agents (name, email, phone, agency, source, status, notes, tags, created_at, updated_at)
+contacts          — All leads/agents (name, email, phone, agency, source, status, stage, notes, tags, consent_basis, unsubscribed, created_at, updated_at)
 outreach_emails   — Every email sent (contact_id, subject, body, status, sent_at, opened_at, replied_at, campaign_id)
-campaigns         — Outreach campaigns (name, type, status, template, target_criteria, stats)
-shoots            — Booked/completed shoots (contact_id, address, sq_ft, tier, price, status, scheduled_at, delivered_at, matterport_url)
-invoices          — Synced from Wave or manual entry (shoot_id, contact_id, amount, tax, status, paid_at)
-tours             — Active Matterport tours (shoot_id, matterport_id, status, views, archived_at)
-listings          — Monitored Realtor.ca listings (address, mls_number, agent_name, status, last_checked)
+campaigns         — Outreach campaigns (name, type, status, template_id, target_criteria, stats_cache)
+email_templates   — Reusable templates with variables (name, subject_template, body_template, language, variables_schema)
+shoots            — Booked/completed shoots (contact_id, address, sq_ft, tier, price, rush, travel_surcharge, status, scheduled_at, delivered_at, matterport_url)
+invoices          — Synced from Wave or manual (shoot_id, contact_id, amount, gst, qst, total, status, due_at, paid_at)
+tours             — Active Matterport tours (shoot_id, matterport_id, listing_url, status, views, archived_at)
+listings          — Monitored Realtor.ca listings (address, mls_number, agent_name, contact_id, status, last_checked, sold_detected_at)
 marketing_spend   — Ad spend tracking (channel, amount, date, campaign_name, impressions, clicks, leads_generated)
-revenue_events    — Revenue attribution (source, contact_id, amount, date)
-content_calendar  — Instagram/social content planning (platform, content_type, pillar, caption_fr, caption_en, media_url, scheduled_at, posted_at, engagement_metrics)
-analytics_daily   — Daily aggregated metrics (date, emails_sent, emails_opened, replies, shoots_booked, revenue, ad_spend, instagram_followers, website_visits)
-notes             — General notes/journal entries (content, category, created_at)
+revenue_events    — Revenue attribution (source_channel, contact_id, shoot_id, amount, date)
+content_calendar  — Social content planning (platform, content_type, pillar, caption_fr, caption_en, media_url, scheduled_at, posted_at, engagement_metrics)
+analytics_daily   — Daily aggregated metrics (date, emails_sent, emails_opened, replies, shoots_booked, shoots_completed, revenue, ad_spend, instagram_followers, website_visits)
+notes             — General notes/journal (content, category, created_at)
+cron_logs         — Job run history (job_name, status, result_summary, ran_at, duration_ms)
+settings          — Key-value config store (matterport_slot_limit, monthly_revenue_goal, weekly_outreach_target, etc.)
+weekly_reports    — Stored weekly report snapshots (week_number, year, data_json, created_at)
 ```
 
 ---
@@ -126,70 +141,56 @@ notes             — General notes/journal entries (content, category, created_
 ## MODULE 1: OUTREACH COMMAND CENTER
 
 ### Lead Sourcing
-
-- **Realtor.ca scraper**: Scrape agent profiles from South Shore brokerages. Extract: name, email (from brokerage pages), phone, agency, areas served, recent listings.
-- **Google Places API**: Cross-reference agent data, get reviews and ratings.
-- **Manual import**: CSV upload for leads from networking, ImmoHEC contacts, etc.
+- **Realtor.ca scraper**: Scrape agent profiles from South Shore brokerages. Extract: name, email, phone, agency, areas served, recent listings.
+- **Manual import**: CSV upload for leads from networking, open houses, etc.
 - **Deduplication**: Match on email + name fuzzy match. Never create duplicate contacts.
 
 ### CRM Pipeline
-
 Visual Kanban board with stages:
-
 ```
 New Lead → Researched → First Email Sent → Follow-up Sent → Replied → Meeting Booked → Trial Shoot → Paying Client → Churned
 ```
-
 - Drag-and-drop between stages
 - Click any contact to see full history (emails, notes, shoots, invoices)
 - Bulk actions: tag, move stage, export
 - Search + filter by: stage, agency, area, tags, date range
 
 ### Email Outreach Engine
+- **CASL compliance is NON-NEGOTIABLE**: Unsubscribe in every email. Implied consent only (publicly listed business contacts). Log consent basis. One follow-up max.
+- **Human-in-the-loop**: Luca writes/edits using templates + variable substitution. NO runtime AI. Luca drafts in Claude.ai separately, pastes into templates.
+- **Email templates**: Variables: `{agent_name}`, `{agency}`, `{listing_address}`, `{compliment}`, `{cta}`. Quick-fill UI: select template → select contact → fill variables → preview → send.
+- **Template library** (pre-load):
+  - Cold outreach (French, casual, property-specific compliment lead)
+  - Follow-up (5–7 days, brief, one new angle, easy out)
+  - Post-shoot delivery (Matterport link + invoice)
+  - Thank you / referral ask
+- **Tracking**: Log sent/opened/replied/bounced per email.
+- **Zoho SMTP**: Nodemailer — Host: smtp.zoho.com, Port: 465 (SSL)
 
-- **CASL compliance is NON-NEGOTIABLE**: Every email must have a clear unsubscribe mechanism. Only email agents with implied consent (their contact info is publicly listed for business purposes on brokerage sites). Log consent basis for every contact.
-- **Human-in-the-loop**: AI drafts emails → Luca reviews/edits → Luca clicks send. NEVER auto-send. Show a review queue with approve/edit/reject for each draft.
-- **Email templates**: Store reusable templates. Variables: `{agent_name}`, `{agency}`, `{listing_address}`, `{compliment}`, `{cta}`.
-- **AI drafting**: Use Claude API to generate personalized cold emails. Input: agent profile + recent listing data. Output: short, natural French email that leads with a genuine property-specific compliment. Tone: casual, human, not corporate. One follow-up maximum, 5–7 days after no reply.
-- **Tracking**: Log sent/opened/replied/bounced status. Calculate open rate, reply rate, booking rate per campaign.
-- **Zoho SMTP integration**: Send via lucanovac@spatia.ca. Configure Nodemailer with:
-  - Host: smtp.zoho.com
-  - Port: 465 (SSL)
-  - Auth: email + app-specific password (stored in .env)
-- **Reply detection**: Webhook or IMAP polling to detect replies and auto-update contact status.
-
-### Outreach Analytics Dashboard
-
+### Outreach Analytics
 - Emails sent / opened / replied (daily, weekly, monthly)
-- Reply rate by campaign, by template, by agent segment
-- Pipeline conversion funnel visualization
-- Best-performing email templates ranked by reply rate
-- Heatmap: best days/times to send (track when opens/replies happen)
-- "Leads going cold" alert: contacts in "First Email Sent" for >7 days with no reply
+- Reply rate by campaign and template
+- Pipeline conversion funnel
+- Best templates by reply rate
+- Send time heatmap
+- "Going cold" alerts
 
-### Outreach Copy Guidelines (for AI drafting)
-
+### Outreach Copy Guidelines (for Luca when drafting in Claude.ai)
 ```
-TONE: Short, natural, leads with a genuine property-specific compliment. 
-      Avoids corporate/template feel. Québécois French by default.
-      Max 4-5 sentences for cold email. Subject line under 6 words.
-      
+TONE: Short, natural, property-specific compliment lead. Québécois French.
+      Max 4-5 sentences. Subject under 6 words.
+
 STRUCTURE:
-  1. Property-specific compliment (reference a real listing detail)
+  1. Property-specific compliment (real listing detail)
   2. One-sentence value prop (speed + quality)
-  3. Soft CTA (not "book a call" — more like "seriez-vous ouvert à un essai?")
-  
-FOLLOW-UP (5-7 days later, only ONE):
-  1. Brief, friendly, reference the first email
-  2. Add one new angle (seasonal timing, new testimonial, etc.)
+  3. Soft CTA ("seriez-vous ouvert à un essai?")
+
+FOLLOW-UP (5-7 days, ONE only):
+  1. Brief, reference first email
+  2. One new angle
   3. Easy out: "Si c'est pas le bon moment, aucun souci."
 
-NEVER:
-  - Mention being new/launching/building portfolio
-  - Offer free publicly (beta pricing only in private DMs)
-  - Use corporate language ("solutions", "leverage", "synergy")
-  - Send more than one follow-up
-  - CC/BCC multiple agents in one email
+NEVER: mention being new, offer free publicly, corporate language, >1 follow-up, CC/BCC
 ```
 
 ---
@@ -197,201 +198,167 @@ NEVER:
 ## MODULE 2: MARKETING & AD ANALYTICS
 
 ### Ad Spend Tracker
-
-- Manual entry + CSV import for ad spend per channel (Meta, Google, Instagram promoted, etc.)
-- Fields: date, channel, campaign_name, amount_spent, impressions, clicks, leads_attributed
-- Running total: monthly spend, cost per lead, cost per booking, ROAS
+- Manual entry + CSV import per channel (Meta, Google, Instagram promoted)
+- Running totals: monthly spend, cost per lead, cost per booking, ROAS
 
 ### Revenue Attribution
+- Every shoot/payment linked to lead source
+- Revenue by source: pie chart + trend line
+- LTV per client over time
+- CAC by channel vs. revenue generated
 
-- Connect every shoot/payment back to its lead source (cold email campaign, Instagram DM, referral, Meta ad, organic)
-- Dashboard view: revenue by source (pie chart + trend line)
-- LTV calculation: revenue per client over time
-- Key metric: Customer Acquisition Cost by channel vs. revenue generated
-
-### Marketing Dashboard Widgets
-
-- Total revenue (MTD, QTD, YTD) with trend
-- Ad spend vs. revenue overlay chart
-- Top 3 revenue sources this month
-- Instagram follower growth + engagement rate trend
-- Website traffic (manual entry or Cloudflare analytics API if available)
-- Content calendar view: upcoming posts with pillar tags
-
-### Channel Optimization Recommendations
-
-- AI-generated weekly summary: "Your best-performing channel this week was [X]. Consider shifting $[Y] from [Z] to [X] based on cost-per-lead data."
-- Flag underperforming channels (cost per lead > 2x average)
+### Marketing Widgets
+- Revenue MTD/QTD/YTD with trend
+- Ad spend vs. revenue overlay
+- Top 3 revenue sources
+- Instagram follower growth + engagement (manual entry)
+- Channel health cards: green/yellow/red based on cost per lead
 
 ---
 
 ## MODULE 3: OPERATIONS & GROWTH
 
-### Shoot Pipeline Tracker
-
-- Calendar view of upcoming shoots (date, time, address, agent, sq ft tier)
-- Status flow: Booked → Shot → Processing → Delivered → Paid
-- Auto-calculate price based on sq ft tier + rush + travel surcharges
-- Delivery time tracker: time from shoot to delivery (goal: same-day for rush, <24h standard)
-- Link to Matterport tour URL once delivered
+### Shoot Pipeline
+- Calendar + list view, status: Booked → Shot → Processing → Delivered → Paid
+- Auto-price from sq ft tier + surcharges
+- Delivery time tracking
+- Matterport URL linking
 
 ### Matterport Slot Manager
+- Active vs. limit gauge
+- Sold listing flags from cron
+- Archive recommendations
 
-- Track active tours vs. plan limit
-- Flag tours linked to sold listings (from Realtor.ca monitoring)
-- One-click archive recommendation: "These 3 tours are for sold properties — archive to free slots?"
-- Slot utilization gauge
+### Invoices & Revenue
+- Manual + Wave CSV import
+- Outstanding/overdue alerts
+- Tax tracking: GST + QST running totals
+- $30K threshold progress bar
 
-### Invoice & Revenue Tracker
+### Content Calendar (5 Pillars)
+- THE WORK / THE EDGE / THE PROCESS / THE PROOF / THE CULTURE
+- Calendar grid with pillar tags
+- FR + EN caption fields
+- Balance indicator across pillars
+- Post status + engagement tracking
 
-- Manual entry or CSV import from Wave
-- Revenue dashboard: daily, weekly, monthly, quarterly views
-- Outstanding invoices alert
-- Average time to payment
-- Tax tracking: GST (5%) + QST (9.975%) totals for filing
+### Home Dashboard
+Single-glance business health: revenue, shoots, pipeline, slot usage, revenue vs spend trend, outreach funnel, upcoming shoots, action items/alerts, tax threshold.
 
-### Content Calendar (5-Pillar System)
+---
 
-Spatia's Instagram content follows five pillars:
+## MODULE 4: AUTOMATION ENGINE (BUILT-IN)
 
+### Cron Jobs (node-cron, registered on server start)
+
+| Job | Schedule | Action |
+|-----|----------|--------|
+| `listing-monitor` | Daily 2:00 AM | Check listing URLs for 3xx redirect (Centris sold signal) or "vendu" keyword. Mark sold, flag tour for archive. |
+| `followup-reminder` | Daily 9:00 AM | Contacts in "First Email Sent" with no reply after 7+ days → flag for follow-up. |
+| `analytics-snapshot` | Daily 11:59 PM | Aggregate day's emails, replies, shoots, revenue, spend → insert analytics_daily row. |
+| `tour-slot-check` | Daily 6:00 AM | Count active tours vs limit. Alert if >80%. |
+| `tax-threshold` | Monday 8:00 AM | Sum YTD revenue. Alert if approaching $30K. |
+| `invoice-overdue` | Daily 8:00 AM | Find unpaid invoices past due date. Create alerts. |
+
+### Cron Infrastructure
+```typescript
+// /lib/cron/index.ts — register on server start (instrumentation.ts or custom server)
+import cron from 'node-cron';
+
+export function registerCronJobs() {
+  cron.schedule('0 2 * * *', runListingMonitor);
+  cron.schedule('0 9 * * *', runFollowupReminder);
+  cron.schedule('59 23 * * *', runAnalyticsSnapshot);
+  cron.schedule('0 6 * * *', runTourSlotCheck);
+  cron.schedule('0 8 * * 1', runTaxThreshold);
+  cron.schedule('0 8 * * *', runInvoiceOverdue);
+}
 ```
-1. THE WORK     — Tour showcases, before/after, walkthroughs
-2. THE EDGE     — Speed stats, tech shots, competitive advantages
-3. THE PROCESS  — Behind-the-scenes, equipment, workflow
-4. THE PROOF    — Client testimonials, results, social proof
-5. THE CULTURE  — Personal brand, Brossard life, studio aesthetic
+
+### Cron Logging
+Every run → `cron_logs` table (job_name, status, result_summary, ran_at, duration_ms). Dashboard `/settings/cron`: recent runs, success/fail, manual trigger buttons.
+
+### Listing Sold Detection
+```
+1. Fetch listing_url with redirect: 'manual'
+2. 3xx → sold (Centris redirects sold listings to "propriétés similaires")
+3. 200 → check body for "vendu" keyword (secondary signal)
+4. Sold → update listing status, flag tour for archiving
+5. Rate limit: 1 request per 2 seconds, rotate user-agent
 ```
 
-- Calendar grid: drag posts to dates, assign pillar tags, write captions (FR primary + EN)
-- Balance indicator: ensure all 5 pillars get coverage each month
-- Draft captions with AI: input pillar + topic → output bilingual caption in Spatia voice
-- Post status: Draft → Scheduled → Posted → Analyzed
-
-### Growth Metrics Overview (Home Dashboard)
-
-The landing page when you open the app. Single glance = business health:
-
+### Webhook Endpoints
 ```
-┌─────────────────────────────────────────────────────────┐
-│  SPATIA GROWTH COMMAND CENTER            [dark mode on] │
-├──────────────┬──────────────┬──────────────┬────────────┤
-│  Revenue MTD │  Shoots MTD  │  Pipeline    │  Slot Usage│
-│  $X,XXX      │  XX          │  XX leads    │  X/XX      │
-│  ▲ XX% vs LM │  ▲ XX% vs LM│  XX% conv.   │  XX% full  │
-├──────────────┴──────────────┴──────────────┴────────────┤
-│                                                         │
-│  [Revenue vs Spend chart — 30 day trend]                │
-│                                                         │
-├─────────────────────────┬───────────────────────────────┤
-│  OUTREACH PIPELINE      │  UPCOMING SHOOTS              │
-│  ┌──┐ ┌──┐ ┌──┐ ┌──┐   │  Today: 2 shoots              │
-│  │12│→│ 8│→│ 3│→│ 1│   │  Tomorrow: 1 shoot            │
-│  └──┘ └──┘ └──┘ └──┘   │  This week: 5 shoots          │
-│  New  Sent Reply Booked │                               │
-├─────────────────────────┴───────────────────────────────┤
-│  ACTIONS NEEDED                                         │
-│  ⚠ 3 emails awaiting review                            │
-│  ⚠ 1 invoice overdue (7 days)                          │
-│  ⚠ 2 Matterport tours on sold listings — archive?      │
-│  📅 No content scheduled for Thursday                   │
-└─────────────────────────────────────────────────────────┘
+POST /api/webhooks/form-submission  — Formspree intake → create contact + note
+GET  /api/cron/trigger/[jobName]    — Manual trigger (auth required)
+POST /api/contacts/import           — CSV upload, parse, dedupe, insert
 ```
 
 ---
 
-## MODULE 4: AI ASSISTANT (EMBEDDED)
+## MODULE 5: WEEKLY GROWTH REPORT (DATA-DRIVEN, NO AI)
 
-### Built-in Claude Chat
+### `/reports/weekly` — auto-generated Monday from analytics_daily
 
-An embedded chat panel (sidebar or modal) powered by Claude API that has full context of the dashboard data. Use cases:
+1. **Revenue**: week total vs last week, MTD, progress toward goal
+2. **Outreach**: emails sent/opened/replied, reply rate trend, pipeline snapshot
+3. **Shoots**: completed, avg delivery time, slot usage
+4. **Marketing**: spend by channel, cost per lead, best/worst channel
+5. **Content**: posts published, pillar distribution, engagement totals
+6. **Alerts recap**: overdue invoices, sold listings, tax threshold, cold contacts
 
-- "Draft a cold email for [agent name]" — pulls agent data from CRM, generates personalized email
-- "What's my best-performing outreach campaign?" — queries analytics and responds
-- "Write an Instagram caption for a shoot at [address]" — generates bilingual caption in Spatia voice
-- "How should I allocate my $200 ad budget this month?" — analyzes channel performance and recommends
+API route: `/api/reports/weekly?week=YYYY-WW` → structured JSON. Stored in `weekly_reports` table. Clean, printable report page.
 
-### Weekly Growth Report (Auto-generated)
+---
 
-Every Sunday night, generate a Markdown report:
+## MODULE 6: SETTINGS
 
-- Revenue summary (week + MTD)
-- Outreach performance (emails sent, replies, bookings)
-- Content posted + engagement
-- Ad spend + ROAS
-- Top 3 wins this week
-- Top 3 priorities for next week
-- AI-suggested actions
+1. **Profile** — Business info, logo
+2. **Pricing** — Editable tiers (used by shoot price calculator)
+3. **Email** — SMTP test, default signature, unsubscribe URL
+4. **Matterport** — Slot limit config
+5. **Goals** — Monthly revenue target, weekly outreach target, posting frequency
+6. **Cron Jobs** — Status, last run, manual triggers, enable/disable
+7. **Export** — CSV export of all data
+8. **Danger Zone** — Reset demo data, purge old logs
 
 ---
 
 ## TECHNICAL REQUIREMENTS
 
 ### Security
-
-- All API keys in `.env.local` (NEVER commit to git)
-- Supabase RLS policies on all tables
-- Single-user auth (Luca only) — no public registration
-- Rate limit all API routes
-- Sanitize all inputs (especially scraper data)
+- `.env.local` for all secrets (NEVER commit)
+- Supabase RLS on all tables
+- Single-user auth, no public registration
+- Rate limit API routes
+- Sanitize scraper data
+- Auth required on cron trigger endpoints
 
 ### Performance
-
-- Server-side rendering for dashboard pages
-- Optimistic UI updates for CRM actions
-- Debounced search
-- Paginated tables (50 rows default)
-- Lazy-load charts
+- SSR for dashboard pages
+- Optimistic UI for CRM actions
+- Debounced search, paginated tables (50 rows)
+- Lazy-load charts, loading skeletons
 
 ### Code Quality
-
-- TypeScript everywhere (strict mode)
-- Consistent file structure: `/app`, `/components`, `/lib`, `/hooks`, `/types`
+- TypeScript strict mode
+- Structure: `/app`, `/components`, `/lib`, `/hooks`, `/types`, `/lib/cron`
 - Reusable chart components
-- Proper error boundaries
-- Loading skeletons for async data
-- Toast notifications for actions (success/error)
-
-### Development Workflow
-
-1. Start with database schema (Supabase migrations)
-2. Build API routes + data layer
-3. Build UI module by module (Home → CRM → Outreach → Marketing → Operations)
-4. Add AI features last (email drafting, assistant, weekly report)
-5. Polish: animations, responsive design, dark mode
+- Error boundaries, toast notifications
 
 ---
 
-## COMPLIANCE REMINDERS
+## COMPLIANCE
 
-- **CASL**: Implied consent only for B2B outreach to publicly listed agents. Include unsubscribe in every email. Log consent basis. One follow-up max.
-- **Quebec Bill 96**: All client-facing communications French-first. Dashboard UI can be English (internal tool).
-- **GST/QST**: Not collecting yet (under $30K threshold). Track revenue toward threshold. Alert when approaching $30K.
-- **Matterport TOS**: Tours are visual experiences, not measurement tools. Disclaimer on all deliverables.
-- **Privacy**: Never expose agent personal data publicly. CRM data is internal only.
-
----
-
-## WHAT SUCCESS LOOKS LIKE
-
-In 30 days, this dashboard should:
-
-1. Replace Google Sheets as the CRM
-2. Draft personalized outreach emails that Luca reviews and sends in <2 minutes each
-3. Show a clear picture of which channels drive revenue
-4. Track every shoot from booking to payment
-5. Manage Matterport slots without manual checking
-6. Plan content across all 5 pillars with bilingual captions
-
-In 90 days:
-
-1. Have enough data to optimize ad spend allocation automatically
-2. Generate weekly growth reports that actually inform decisions
-3. Serve as the single source of truth for all Spatia operations
+- **CASL**: Implied consent, unsubscribe in every email, consent logged, one follow-up max
+- **Bill 96**: Client-facing = French-first. Dashboard = English OK (internal)
+- **GST/QST**: Track toward $30K threshold, alert when close
+- **Matterport**: Measurement disclaimer on deliverables
+- **Privacy**: CRM data internal only, never exposed publicly
+- **Realtor.ca**: Rate limit scraping, don't hammer
 
 ---
 
 ## REMEMBER
 
-Every hour Luca spends building features is an hour not spent shooting tours and closing clients. **Build fast, ship ugly, iterate.** The dashboard doesn't need to be perfect on day one — it needs to be useful on day one. Start with the CRM + outreach module (that's where revenue comes from), then layer everything else.
-
-The infrastructure phase is OVER. This tool exists to SELL.
+Build fast, ship ugly, iterate. No AI API costs, no external automation tools. CRM + outreach first (that's where revenue lives), then layer everything else. The infrastructure phase is OVER. This tool exists to SELL.

@@ -129,6 +129,33 @@
   }
 }
 
+/* Print: light mode */
+@media print {
+  :root {
+    --background: oklch(1 0 0);
+    --foreground: oklch(0.09 0 0);
+    --card: oklch(0.97 0 0);
+    --card-foreground: oklch(0.09 0 0);
+    --muted: oklch(0.92 0 0);
+    --muted-foreground: oklch(0.4 0 0);
+    --border: oklch(0.09 0 0 / 15%);
+    --sidebar: oklch(1 0 0);
+  }
+  aside, header, [data-no-print] {
+    display: none !important;
+  }
+  body {
+    background: white;
+    color: black;
+  }
+}
+
+/* Mobile responsive table helper */
+.table-scroll-x {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
 /* Editorial typography helpers */
 .font-heading {
   font-family: var(--font-playfair), Georgia, serif;
