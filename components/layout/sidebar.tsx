@@ -2,7 +2,7 @@
 
 import Link from "next/link"
 import { usePathname, useRouter } from "next/navigation"
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import {
   LayoutDashboard,
   Users,
@@ -19,6 +19,11 @@ import {
   ScanSearch,
   Menu,
   X,
+  DollarSign,
+  ShieldCheck,
+  CreditCard,
+  FileUp,
+  Terminal,
 } from "lucide-react"
 import { createClient } from "@/lib/supabase/client"
 import { cn } from "@/lib/utils"
@@ -29,7 +34,9 @@ const NAV_ITEMS: {
   label: string
   icon: React.ComponentType<{ size?: number; strokeWidth?: number; className?: string }>
   sub?: { href: string; label: string; icon: React.ComponentType<{ size?: number; strokeWidth?: number; className?: string }> }[]
+  isCommand?: boolean
 }[] = [
+  { href: "/command", label: "command", icon: Terminal, isCommand: true },
   { href: "/", label: "home", icon: LayoutDashboard },
   { href: "/crm", label: "crm", icon: Users },
   { href: "/outreach", label: "outreach", icon: Mail },
@@ -44,15 +51,40 @@ const NAV_ITEMS: {
       { href: "/operations/invoices", label: "invoices", icon: Receipt },
     ],
   },
+  {
+    href: "/money",
+    label: "money",
+    icon: DollarSign,
+    sub: [
+      { href: "/money", label: "overview", icon: DollarSign },
+      { href: "/money/taxes", label: "taxes", icon: ShieldCheck },
+      { href: "/money/expenses", label: "expenses", icon: CreditCard },
+      { href: "/money/import-wave", label: "import wave", icon: FileUp },
+    ],
+  },
   { href: "/content", label: "content", icon: Calendar },
   { href: "/reports", label: "reports", icon: FileText },
   { href: "/tools/scraper", label: "scraper", icon: ScanSearch },
   { href: "/settings", label: "settings", icon: Settings },
 ]
 
+function useActionItemCount() {
+  const [count, setCount] = useState(0)
+
+  useEffect(() => {
+    fetch("/api/command/action-items?status=active&severity=critical,warning&limit=50")
+      .then((r) => r.json())
+      .then((data) => setCount(data.action_items?.length ?? 0))
+      .catch(() => {})
+  }, [])
+
+  return count
+}
+
 function NavContent({ onLinkClick }: { onLinkClick?: () => void }) {
   const pathname = usePathname()
   const router = useRouter()
+  const actionCount = useActionItemCount()
 
   async function handleSignOut() {
     const supabase = createClient()
@@ -64,10 +96,9 @@ function NavContent({ onLinkClick }: { onLinkClick?: () => void }) {
 
   return (
     <>
-      {/* Nav */}
       <nav className="flex-1 py-4 space-y-0.5 px-2 overflow-y-auto">
-        {NAV_ITEMS.map(({ href, label, icon: Icon, sub }) => {
-          const isActive = href === "/" ? pathname === "/" : pathname.startsWith(href)
+        {NAV_ITEMS.map(({ href, label, icon: Icon, sub, isCommand }) => {
+          const isActive = href === "/" ? pathname === "/" : pathname === href || (pathname.startsWith(href + "/") && href !== "/")
           return (
             <div key={href}>
               <Link
@@ -81,12 +112,20 @@ function NavContent({ onLinkClick }: { onLinkClick?: () => void }) {
                 )}
               >
                 <Icon size={15} strokeWidth={1.5} className="shrink-0" />
-                <span className="spatia-label">{label}</span>
+                <span className="spatia-label flex-1">{label}</span>
+                {/* Badge for command center */}
+                {isCommand && actionCount > 0 && (
+                  <span className="inline-flex items-center justify-center w-4 h-4 text-[9px] font-mono bg-red-400 text-black rounded-full shrink-0">
+                    {actionCount > 9 ? "9+" : actionCount}
+                  </span>
+                )}
               </Link>
               {sub && isActive && (
                 <div className="ml-2 mt-0.5 space-y-0.5">
                   {sub.map(({ href: subHref, label: subLabel, icon: SubIcon }) => {
-                    const isSubActive = pathname.startsWith(subHref)
+                    const isSubActive =
+                      pathname === subHref ||
+                      (pathname.startsWith(subHref + "/") && subHref !== "/")
                     return (
                       <Link
                         key={subHref}
@@ -111,8 +150,12 @@ function NavContent({ onLinkClick }: { onLinkClick?: () => void }) {
         })}
       </nav>
 
-      {/* Sign out */}
-      <div className="border-t border-border p-2">
+      {/* ⌘K hint + sign out */}
+      <div className="border-t border-border p-2 space-y-1">
+        <div className="px-2 py-1 hidden lg:flex items-center gap-2 text-muted-foreground/40">
+          <span className="spatia-label text-[10px]">⌘K</span>
+          <span className="spatia-label text-[10px]">commandes</span>
+        </div>
         <button
           onClick={handleSignOut}
           className="flex items-center gap-3 px-2 py-2 text-sm text-muted-foreground hover:text-foreground hover:bg-accent/50 transition-colors rounded-sm w-full"
@@ -167,10 +210,7 @@ export function Sidebar() {
           className="md:hidden fixed inset-0 z-50 flex"
           onClick={() => setMobileOpen(false)}
         >
-          {/* Backdrop */}
           <div className="absolute inset-0 bg-black/60" />
-
-          {/* Drawer */}
           <aside
             className="relative flex flex-col w-64 bg-sidebar border-r border-border h-full"
             onClick={(e) => e.stopPropagation()}

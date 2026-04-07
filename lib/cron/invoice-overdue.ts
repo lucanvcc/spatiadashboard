@@ -1,4 +1,5 @@
 import { runCronJob, getSupabaseAdmin } from "./run-job"
+import { upsertActionItem } from "@/lib/action-items"
 
 export async function runInvoiceOverdue() {
   return runCronJob("invoice-overdue", async () => {
@@ -6,26 +7,27 @@ export async function runInvoiceOverdue() {
 
     const now = new Date().toISOString()
 
-    // Find unpaid invoices past due date
     const { data: invoices, error } = await supabase
       .from("invoices")
-      .select("id, contact_id, total, due_at, status")
+      .select("id, contact_id, total, due_at, status, wave_invoice_id, contacts(name)")
       .not("status", "eq", "paid")
       .not("status", "eq", "cancelled")
       .lt("due_at", now)
       .not("due_at", "is", null)
 
     if (error) throw new Error(error.message)
-    if (!invoices || invoices.length === 0) return "no overdue invoices"
+    if (!invoices || invoices.length === 0) {
+      return { summary: "no overdue invoices", actionItemsCreated: 0 }
+    }
 
     let updated = 0
+    let actionItemsCreated = 0
 
     for (const invoice of invoices) {
       const daysOverdue = Math.floor(
         (Date.now() - new Date(invoice.due_at).getTime()) / (1000 * 60 * 60 * 24)
       )
 
-      // Update status to overdue if not already
       if (invoice.status !== "overdue") {
         await supabase
           .from("invoices")
@@ -34,7 +36,31 @@ export async function runInvoiceOverdue() {
         updated++
       }
 
-      // Create alert if not already exists for this invoice
+      const invoiceLabel = invoice.wave_invoice_id ?? invoice.id.slice(0, 8)
+      const contactName =
+        invoice.contacts && typeof invoice.contacts === "object" && !Array.isArray(invoice.contacts)
+          ? (invoice.contacts as { name: string }).name
+          : null
+
+      const created = await upsertActionItem({
+        type: "invoice_overdue",
+        severity: daysOverdue > 14 ? "critical" : "warning",
+        title: `Facture en retard: #${invoiceLabel}`,
+        description: `${contactName ? `${contactName} — ` : ""}$${invoice.total} dû depuis ${daysOverdue} jour${daysOverdue !== 1 ? "s" : ""}.`,
+        related_entity_type: "invoice",
+        related_entity_id: invoice.id,
+        related_url: `/money/invoices/${invoice.id}`,
+        source: "cron:invoice_overdue",
+        data: {
+          contact_name: contactName,
+          amount: invoice.total,
+          due_date: invoice.due_at,
+          days_overdue: daysOverdue,
+        },
+      })
+      if (created) actionItemsCreated++
+
+      // Legacy alert (keep for backwards compat with home dashboard)
       const { data: existing } = await supabase
         .from("alerts")
         .select("id")
@@ -52,6 +78,9 @@ export async function runInvoiceOverdue() {
       }
     }
 
-    return `${invoices.length} overdue invoice${invoices.length !== 1 ? "s" : ""} found, ${updated} status updated`
+    return {
+      summary: `${invoices.length} overdue invoice${invoices.length !== 1 ? "s" : ""} found, ${updated} status updated, ${actionItemsCreated} action items created`,
+      actionItemsCreated,
+    }
   })
 }

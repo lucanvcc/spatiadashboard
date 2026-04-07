@@ -3,6 +3,7 @@
 import { usePathname } from "next/navigation"
 
 const PAGE_TITLES: Record<string, string> = {
+  "/command": "command center",
   "/": "home",
   "/crm": "crm",
   "/outreach": "outreach",
@@ -10,6 +11,9 @@ const PAGE_TITLES: Record<string, string> = {
   "/operations": "operations",
   "/content": "content",
   "/settings": "settings",
+  "/money": "money",
+  "/reports": "reports",
+  "/tools": "tools",
 }
 
 function getTitle(pathname: string): string {

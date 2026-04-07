@@ -6,6 +6,8 @@ import { runTourSlotCheck } from "./tour-slot-check"
 import { runTaxThreshold } from "./tax-threshold"
 import { runInvoiceOverdue } from "./invoice-overdue"
 import { runWeeklyReport } from "./weekly-report"
+import { runCampaignHealth } from "./campaign-health"
+import { runShootToday } from "./shoot-today"
 
 // Prevent duplicate registration on hot-reload in dev
 const globalForCron = globalThis as unknown as { __cronRegistered?: boolean }
@@ -46,6 +48,16 @@ export const CRON_JOBS: Record<string, { schedule: string; description: string; 
     description: "Generate and store last week's report (7:00 AM Mondays)",
     fn: runWeeklyReport,
   },
+  "campaign-health": {
+    schedule: "0 7 * * *",
+    description: "Evaluate ad campaign performance, flag kill/scale (7:00 AM daily)",
+    fn: runCampaignHealth,
+  },
+  "shoot-today": {
+    schedule: "30 6 * * *",
+    description: "Create action items for today's and tomorrow's shoots (6:30 AM daily)",
+    fn: runShootToday,
+  },
 }
 
 export function registerCronJobs() {
@@ -54,7 +66,6 @@ export function registerCronJobs() {
 
   for (const [name, job] of Object.entries(CRON_JOBS)) {
     cron.schedule(job.schedule, async () => {
-      // Check if job is enabled in settings
       try {
         const { createClient } = await import("@supabase/supabase-js")
         const supabase = createClient(
