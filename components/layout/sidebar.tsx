@@ -14,6 +14,8 @@ import {
   Camera,
   Box,
   Receipt,
+  FileText,
+  ScanSearch,
 } from "lucide-react"
 import { createClient } from "@/lib/supabase/client"
 import { cn } from "@/lib/utils"
@@ -35,6 +37,8 @@ const NAV_ITEMS: { href: string; label: string; icon: React.ComponentType<{ size
     ],
   },
   { href: "/content", label: "content", icon: Calendar },
+  { href: "/reports", label: "reports", icon: FileText },
+  { href: "/tools/scraper", label: "scraper", icon: ScanSearch },
   { href: "/settings", label: "settings", icon: Settings },
 ]
 

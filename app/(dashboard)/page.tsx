@@ -1,8 +1,9 @@
 import { createClient } from "@/lib/supabase/server"
 import { formatCurrency } from "@/lib/pricing"
-import { AlertTriangle, Camera, Users } from "lucide-react"
+import { AlertTriangle, AlertCircle, Info, Camera, Users } from "lucide-react"
 import { TrendSection } from "@/components/charts/trend-section"
 import { UnifiedCalendar } from "@/components/dashboard/unified-calendar"
+import { getActiveAlerts, type Alert } from "@/lib/alerts"
 
 async function getDashboardStats() {
   const supabase = await createClient()
@@ -126,18 +127,15 @@ async function getContacts() {
 }
 
 export default async function HomePage() {
-  const [stats, shoots, contacts] = await Promise.all([getDashboardStats(), getUpcomingShoots(), getContacts()])
+  const [stats, shoots, contacts, alerts] = await Promise.all([
+    getDashboardStats(),
+    getUpcomingShoots(),
+    getContacts(),
+    getActiveAlerts(),
+  ])
 
   const revTrend = pct(stats.revenue_mtd, stats.revenue_last_month)
   const shootTrend = pct(stats.shoots_mtd, stats.shoots_last_month)
-
-  const alerts: string[] = []
-  if (stats.emails_awaiting_review > 0)
-    alerts.push(`${stats.emails_awaiting_review} email${stats.emails_awaiting_review > 1 ? "s" : ""} awaiting review`)
-  if (stats.overdue_invoices > 0)
-    alerts.push(`${stats.overdue_invoices} invoice${stats.overdue_invoices > 1 ? "s" : ""} overdue`)
-  if (stats.tours_on_sold_listings > 0)
-    alerts.push(`${stats.tours_on_sold_listings} Matterport tour${stats.tours_on_sold_listings > 1 ? "s" : ""} on sold listings — archive?`)
 
   const funnelSteps = [
     { label: "new", count: stats.funnel.new_lead },
@@ -247,13 +245,45 @@ export default async function HomePage() {
             <p className="spatia-label text-xs text-muted-foreground">actions needed</p>
           </div>
           <ul className="space-y-2">
-            {alerts.map((text, i) => (
-              <li key={i} className="flex items-center gap-2 text-sm">
-                <AlertTriangle size={12} strokeWidth={1.5} className="text-amber-400 shrink-0" />
-                {text}
-              </li>
-            ))}
+            {alerts.map((alert, i) => {
+              const Icon =
+                alert.severity === "critical"
+                  ? AlertCircle
+                  : alert.severity === "info"
+                  ? Info
+                  : AlertTriangle
+              const iconColor =
+                alert.severity === "critical"
+                  ? "text-red-400"
+                  : alert.severity === "info"
+                  ? "text-blue-400"
+                  : "text-amber-400"
+              return (
+                <li key={i}>
+                  <a
+                    href={alert.action_url}
+                    className="flex items-start gap-2 group hover:opacity-80 transition-opacity"
+                  >
+                    <Icon size={12} strokeWidth={1.5} className={`${iconColor} shrink-0 mt-0.5`} />
+                    <div className="min-w-0">
+                      <p className="text-sm leading-snug group-hover:underline underline-offset-2">
+                        {alert.title}
+                      </p>
+                      <p className="text-xs text-muted-foreground mt-0.5 leading-relaxed">
+                        {alert.description}
+                      </p>
+                    </div>
+                  </a>
+                </li>
+              )
+            })}
           </ul>
+          <a
+            href="/reports/weekly"
+            className="spatia-label text-xs text-muted-foreground hover:text-foreground transition-colors block"
+          >
+            view weekly report →
+          </a>
         </div>
       )}
     </div>
