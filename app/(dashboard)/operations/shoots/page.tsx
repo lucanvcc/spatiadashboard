@@ -2,6 +2,8 @@ import { createClient } from "@/lib/supabase/server"
 import { ShootsList } from "@/components/operations/shoots-list"
 import { headers } from "next/headers"
 import { CalendarLink } from "@/components/operations/calendar-link"
+import Link from "next/link"
+import { ClipboardList } from "lucide-react"
 
 async function getContacts() {
   const supabase = await createClient()
@@ -27,7 +29,16 @@ export default async function ShootsPage() {
           <h1 className="font-heading text-xl tracking-tight">shoots</h1>
           <p className="text-muted-foreground text-xs mt-0.5">booked → shot → processing → delivered → paid</p>
         </div>
-        <CalendarLink feedUrl={feedUrl} />
+        <div className="flex items-center gap-2">
+          <Link
+            href="/operations/shoots/prep"
+            className="flex items-center gap-1.5 px-3 py-1.5 border border-border text-muted-foreground hover:text-foreground hover:border-foreground/40 transition-colors spatia-label text-xs"
+          >
+            <ClipboardList size={12} strokeWidth={1.5} />
+            prép du jour
+          </Link>
+          <CalendarLink feedUrl={feedUrl} />
+        </div>
       </div>
       <ShootsList contacts={contacts} />
     </div>
