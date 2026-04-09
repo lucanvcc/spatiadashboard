@@ -4,7 +4,6 @@ import Link from "next/link"
 import { usePathname, useRouter } from "next/navigation"
 import { useState, useEffect } from "react"
 import {
-  LayoutDashboard,
   Users,
   Mail,
   BarChart2,
@@ -24,6 +23,9 @@ import {
   CreditCard,
   FileUp,
   Terminal,
+  TrendingUp,
+  Activity,
+  Megaphone,
 } from "lucide-react"
 import { createClient } from "@/lib/supabase/client"
 import { cn } from "@/lib/utils"
@@ -35,20 +37,38 @@ const NAV_ITEMS: {
   icon: React.ComponentType<{ size?: number; strokeWidth?: number; className?: string }>
   sub?: { href: string; label: string; icon: React.ComponentType<{ size?: number; strokeWidth?: number; className?: string }> }[]
   isCommand?: boolean
+  activeAlso?: string[]
 }[] = [
   { href: "/command", label: "command", icon: Terminal, isCommand: true },
-  { href: "/", label: "home", icon: LayoutDashboard },
-  { href: "/crm", label: "crm", icon: Users },
-  { href: "/outreach", label: "outreach", icon: Mail },
-  { href: "/marketing", label: "marketing", icon: BarChart2 },
+  { href: "/crm", label: "crm", icon: Users, sub: [
+    { href: "/crm", label: "pipeline", icon: Users },
+    { href: "/crm/import", label: "import csv", icon: FileUp },
+  ]},
   {
-    href: "/operations",
-    label: "operations",
-    icon: Wrench,
+    href: "/outreach",
+    label: "outreach",
+    icon: Mail,
+    activeAlso: ["/marketing", "/content"],
+    sub: [
+      { href: "/outreach", label: "queue", icon: Mail },
+      { href: "/outreach/campaigns", label: "campaigns", icon: Megaphone },
+      { href: "/outreach/templates", label: "templates", icon: FileText },
+      { href: "/outreach/analytics", label: "analytics", icon: BarChart2 },
+      { href: "/content", label: "content calendar", icon: Calendar },
+      { href: "/marketing", label: "marketing", icon: TrendingUp },
+      { href: "/marketing/meta", label: "meta ads", icon: TrendingUp },
+      { href: "/marketing/meta/organic", label: "organic", icon: Activity },
+      { href: "/marketing/meta-import", label: "import meta", icon: FileUp },
+    ],
+  },
+  {
+    href: "/operations/shoots",
+    label: "shoots",
+    icon: Camera,
+    activeAlso: ["/operations"],
     sub: [
       { href: "/operations/shoots", label: "shoots", icon: Camera },
       { href: "/operations/tours", label: "matterport", icon: Box },
-      { href: "/operations/invoices", label: "invoices", icon: Receipt },
     ],
   },
   {
@@ -57,15 +77,30 @@ const NAV_ITEMS: {
     icon: DollarSign,
     sub: [
       { href: "/money", label: "overview", icon: DollarSign },
+      { href: "/money/invoices", label: "invoices", icon: Receipt },
       { href: "/money/taxes", label: "taxes", icon: ShieldCheck },
       { href: "/money/expenses", label: "expenses", icon: CreditCard },
       { href: "/money/import-wave", label: "import wave", icon: FileUp },
     ],
   },
-  { href: "/content", label: "content", icon: Calendar },
-  { href: "/reports", label: "reports", icon: FileText },
-  { href: "/tools/scraper", label: "scraper", icon: ScanSearch },
-  { href: "/settings", label: "settings", icon: Settings },
+  {
+    href: "/settings",
+    label: "settings",
+    icon: Settings,
+    activeAlso: ["/reports", "/notes", "/tools"],
+    sub: [
+      { href: "/settings", label: "overview", icon: Settings },
+      { href: "/settings/goals", label: "goals", icon: Settings },
+      { href: "/settings/cron", label: "automation", icon: Settings },
+      { href: "/settings/email", label: "email", icon: Mail },
+      { href: "/settings/wave", label: "wave", icon: DollarSign },
+      { href: "/settings/matterport", label: "matterport", icon: Box },
+      { href: "/settings/export", label: "export", icon: FileUp },
+      { href: "/reports/weekly", label: "weekly report", icon: FileText },
+      { href: "/notes", label: "notes", icon: FileText },
+      { href: "/tools/scraper", label: "scraper", icon: ScanSearch },
+    ],
+  },
 ]
 
 function useActionItemCount() {
@@ -97,8 +132,13 @@ function NavContent({ onLinkClick }: { onLinkClick?: () => void }) {
   return (
     <>
       <nav className="flex-1 py-4 space-y-0.5 px-2 overflow-y-auto">
-        {NAV_ITEMS.map(({ href, label, icon: Icon, sub, isCommand }) => {
-          const isActive = href === "/" ? pathname === "/" : pathname === href || (pathname.startsWith(href + "/") && href !== "/")
+        {NAV_ITEMS.map(({ href, label, icon: Icon, sub, isCommand, activeAlso }) => {
+          const isActive =
+            pathname === href ||
+            (pathname.startsWith(href + "/") && href !== "/") ||
+            (activeAlso ?? []).some(
+              (alt) => pathname === alt || pathname.startsWith(alt + "/")
+            )
           return (
             <div key={href}>
               <Link
@@ -177,12 +217,12 @@ export function Sidebar() {
       <aside className="hidden md:flex flex-col w-14 lg:w-52 border-r border-border bg-sidebar shrink-0 h-screen sticky top-0">
         {/* Brand */}
         <div className="h-14 flex items-center px-4 border-b border-border">
-          <div className="flex items-center gap-3">
+          <Link href="/" className="flex items-center gap-3 hover:opacity-80 transition-opacity">
             <div className="border border-border w-7 h-7 flex items-center justify-center shrink-0">
               <span className="font-heading text-sm">S</span>
             </div>
             <span className="font-heading text-sm tracking-tight hidden lg:block">spatia</span>
-          </div>
+          </Link>
         </div>
         <NavContent />
       </aside>

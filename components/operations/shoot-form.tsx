@@ -19,6 +19,15 @@ interface Props {
 
 const STATUSES: ShootStatus[] = ["booked", "shot", "processing", "delivered", "paid"]
 
+function defaultScheduledAt(): string {
+  const tomorrow = new Date()
+  tomorrow.setDate(tomorrow.getDate() + 1)
+  tomorrow.setHours(9, 0, 0, 0)
+  // Format as datetime-local value: YYYY-MM-DDTHH:MM
+  const pad = (n: number) => String(n).padStart(2, "0")
+  return `${tomorrow.getFullYear()}-${pad(tomorrow.getMonth() + 1)}-${pad(tomorrow.getDate())}T09:00`
+}
+
 export function ShootForm({ contacts, onCreated }: Props) {
   const [open, setOpen] = useState(false)
   const [loading, setLoading] = useState(false)
@@ -106,7 +115,7 @@ export function ShootForm({ contacts, onCreated }: Props) {
 
         <div className="space-y-1">
           <label className="spatia-label text-xs text-muted-foreground">scheduled</label>
-          <input name="scheduled_at" type="datetime-local" className="w-full bg-background border border-border px-3 py-2 text-sm" />
+          <input name="scheduled_at" type="datetime-local" defaultValue={defaultScheduledAt()} className="w-full bg-background border border-border px-3 py-2 text-sm" />
         </div>
 
         <div className="space-y-1">

@@ -2,7 +2,8 @@ import { createClient } from "@/lib/supabase/server"
 import { KanbanBoard } from "@/components/crm/kanban-board"
 import { Contact, PIPELINE_STAGES } from "@/types/database"
 import Link from "next/link"
-import { Upload } from "lucide-react"
+import { Upload, UserPlus } from "lucide-react"
+import { Suspense } from "react"
 
 export default async function CrmPage() {
   const supabase = await createClient()
@@ -33,18 +34,29 @@ export default async function CrmPage() {
             {allContacts.length} contacts · {activeLeads} active · {stageCounts["client"] ?? 0} paying clients
           </p>
         </div>
-        <Link
-          href="/crm/import"
-          className="flex items-center gap-2 text-xs border border-border px-3 py-2 hover:bg-accent transition-colors"
-        >
-          <Upload size={12} strokeWidth={1.5} />
-          import csv
-        </Link>
+        <div className="flex items-center gap-2">
+          <Link
+            href="/crm?new=1"
+            className="flex items-center gap-2 text-xs border border-border px-3 py-2 hover:bg-accent transition-colors"
+          >
+            <UserPlus size={12} strokeWidth={1.5} />
+            nouveau
+          </Link>
+          <Link
+            href="/crm/import"
+            className="flex items-center gap-2 text-xs border border-border px-3 py-2 hover:bg-accent transition-colors"
+          >
+            <Upload size={12} strokeWidth={1.5} />
+            import csv
+          </Link>
+        </div>
       </div>
 
       {/* Kanban */}
       <div className="flex-1 overflow-hidden">
-        <KanbanBoard initialContacts={allContacts} />
+        <Suspense fallback={null}>
+          <KanbanBoard initialContacts={allContacts} />
+        </Suspense>
       </div>
     </div>
   )

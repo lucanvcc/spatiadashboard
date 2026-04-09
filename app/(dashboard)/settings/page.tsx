@@ -1,5 +1,9 @@
 import Link from "next/link"
-import { Clock, Mail, Sliders, Database } from "lucide-react"
+import { Clock, Mail, Sliders, Database, DollarSign, Box, AlertCircle } from "lucide-react"
+
+// Check if API credentials are configured
+const WAVE_CONNECTED = !!(process.env.WAVE_ACCESS_TOKEN)
+const MATTERPORT_CONNECTED = !!(process.env.MATTERPORT_TOKEN_ID && process.env.MATTERPORT_TOKEN_SECRET)
 
 const sections = [
   {
@@ -7,27 +11,46 @@ const sections = [
     icon: Clock,
     title: "automation engine",
     description: "cron jobs — status, manual triggers, enable/disable",
+    status: null,
   },
   {
-    href: "#",
+    href: "/settings/email",
     icon: Mail,
     title: "email / smtp",
-    description: "zoho smtp config, signature, test send",
-    disabled: true,
+    description: "zoho smtp config, test send, casl unsubscribe line",
+    status: null,
   },
   {
-    href: "#",
+    href: "/settings/goals",
     icon: Sliders,
     title: "goals & limits",
     description: "revenue targets, outreach quotas, matterport slot limit",
-    disabled: true,
+    status: null,
   },
   {
-    href: "#",
+    href: "/settings/export",
     icon: Database,
     title: "export & danger zone",
     description: "csv export all data, purge old logs",
-    disabled: true,
+    status: null,
+  },
+  {
+    href: "/settings/wave",
+    icon: DollarSign,
+    title: "wave financial",
+    description: WAVE_CONNECTED
+      ? "connecté — synchronisation auto des factures et transactions"
+      : "non connecté — import manuel uniquement",
+    status: WAVE_CONNECTED ? "connected" : "disconnected",
+  },
+  {
+    href: "/settings/matterport",
+    icon: Box,
+    title: "matterport api",
+    description: MATTERPORT_CONNECTED
+      ? "connecté — synchronisation auto des espaces toutes les 12h"
+      : "non connecté — suivi manuel des slots",
+    status: MATTERPORT_CONNECTED ? "connected" : "disconnected",
   },
 ]
 
@@ -45,15 +68,24 @@ export default function SettingsPage() {
           const inner = (
             <div className="flex items-start gap-3 p-4 border border-border rounded-sm hover:bg-muted/10 transition-colors">
               <Icon className="w-4 h-4 text-muted-foreground shrink-0 mt-0.5" />
-              <div>
-                <div className="text-sm font-medium">{s.title}</div>
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2">
+                  <span className="text-sm font-medium">{s.title}</span>
+                  {s.status === "disconnected" && (
+                    <span className="inline-flex items-center gap-1 text-[10px] spatia-label text-amber-400">
+                      <AlertCircle size={9} strokeWidth={1.5} />
+                      setup
+                    </span>
+                  )}
+                  {s.status === "connected" && (
+                    <span className="inline-flex h-1.5 w-1.5 rounded-full bg-emerald-400 shrink-0" />
+                  )}
+                </div>
                 <div className="text-xs text-muted-foreground mt-0.5">{s.description}</div>
               </div>
             </div>
           )
-          return s.disabled ? (
-            <div key={s.title} className="opacity-40 cursor-not-allowed">{inner}</div>
-          ) : (
+          return (
             <Link key={s.title} href={s.href}>{inner}</Link>
           )
         })}

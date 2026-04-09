@@ -15,6 +15,7 @@ interface Contact {
 
 interface Shoot {
   id: string
+  contact_id: string
   address: string
   sq_ft: number
   tier: number
@@ -24,7 +25,7 @@ interface Shoot {
   delivered_at: string | null
   matterport_url: string | null
   notes: string | null
-  contacts: { name: string; agency: string | null } | null
+  contacts: { id: string; name: string; agency: string | null } | null
 }
 
 const STATUS_ORDER: ShootStatus[] = ["booked", "shot", "processing", "delivered", "paid"]
@@ -47,6 +48,7 @@ export function ShootsList({ contacts }: { contacts: Contact[] }) {
   const [filter, setFilter] = useState<ShootStatus | "all">("all")
   const [editingMatterport, setEditingMatterport] = useState<string | null>(null)
   const [matterportUrl, setMatterportUrl] = useState("")
+  const [creatingInvoice, setCreatingInvoice] = useState<string | null>(null)
 
   const load = useCallback(async () => {
     const url = filter === "all" ? "/api/shoots" : `/api/shoots?status=${filter}`
@@ -69,6 +71,31 @@ export function ShootsList({ contacts }: { contacts: Contact[] }) {
     })
     if (res.ok) { toast.success(`Status → ${next}`); load() }
     else toast.error("Failed to update")
+  }
+
+  async function createInvoiceFromShoot(shoot: Shoot) {
+    setCreatingInvoice(shoot.id)
+    const due = new Date()
+    due.setDate(due.getDate() + 14) // net-14 default
+    const res = await fetch("/api/invoices", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        shoot_id: shoot.id,
+        contact_id: shoot.contact_id,
+        amount: shoot.total_price,
+        discount: 0,
+        status: "sent",
+        due_at: due.toISOString().slice(0, 10),
+      }),
+    })
+    if (res.ok) {
+      toast.success("Invoice created — view in money → invoices")
+    } else {
+      const d = await res.json()
+      toast.error(d.error ?? "Failed to create invoice")
+    }
+    setCreatingInvoice(null)
   }
 
   async function saveMatterport(id: string) {
@@ -100,7 +127,10 @@ export function ShootsList({ contacts }: { contacts: Contact[] }) {
       </div>
 
       {shoots.length === 0 ? (
-        <p className="text-muted-foreground text-sm">no shoots found</p>
+        <div className="py-8 space-y-2">
+          <p className="text-muted-foreground text-sm">aucun shoot — commencez par en ajouter un.</p>
+          <p className="text-xs text-muted-foreground">utilisez le bouton &ldquo;+ add shoot&rdquo; ci-dessus ou <kbd className="text-[10px] border border-border px-1 py-0.5">⌘⇧S</kbd> depuis n&apos;importe quelle page.</p>
+        </div>
       ) : (
         <div className="border border-border divide-y divide-border">
           {shoots.map((shoot) => (
@@ -139,6 +169,15 @@ export function ShootsList({ contacts }: { contacts: Contact[] }) {
                     className="spatia-label text-xs px-3 py-1 border border-border hover:bg-accent transition-colors"
                   >
                     → {STATUS_ORDER[STATUS_ORDER.indexOf(shoot.status) + 1]}
+                  </button>
+                )}
+                {shoot.status === "delivered" && (
+                  <button
+                    onClick={() => createInvoiceFromShoot(shoot)}
+                    disabled={creatingInvoice === shoot.id}
+                    className="spatia-label text-xs px-3 py-1 border border-border hover:bg-accent transition-colors text-muted-foreground disabled:opacity-50"
+                  >
+                    {creatingInvoice === shoot.id ? "creating..." : "create invoice"}
                   </button>
                 )}
                 {(shoot.status === "delivered" || shoot.status === "paid") && !shoot.matterport_url && (

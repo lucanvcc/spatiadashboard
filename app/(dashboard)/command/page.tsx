@@ -16,6 +16,7 @@ import {
   TrendingUp,
   TrendingDown,
   Zap,
+  Flame,
 } from "lucide-react"
 import { ActionItemsPanel } from "@/components/command/action-items-panel"
 
@@ -119,6 +120,7 @@ async function getScoreboard() {
     { data: adSpendTW },
     { data: adSpendLW },
     { data: goalSetting },
+    { data: outreachTargetSetting },
   ] = await Promise.all([
     supabase.from("invoices").select("total").eq("status", "paid")
       .gte("paid_at", thisWeekStart).lte("paid_at", now.toISOString()),
@@ -142,6 +144,7 @@ async function getScoreboard() {
       .gte("date", lastMonday.toISOString().slice(0, 10))
       .lte("date", lastSunday.toISOString().slice(0, 10)),
     supabase.from("settings").select("value").eq("key", "monthly_revenue_goal").single(),
+    supabase.from("settings").select("value").eq("key", "weekly_outreach_target").single(),
   ])
 
   const revTWTotal = (revTW ?? []).reduce((s, r) => s + r.total, 0)
@@ -176,6 +179,7 @@ async function getScoreboard() {
       replies_last_week: repliesLW,
       reply_rate_last_week: sentLW > 0 ? (repliesLW / sentLW) * 100 : 0,
       pipeline,
+      weekly_target: parseInt(outreachTargetSetting?.value ?? "20", 10),
     },
     meta: {
       spend_this_week: (adSpendTW ?? []).reduce((s, r) => s + (r.amount_spent ?? 0), 0),
@@ -290,6 +294,61 @@ async function getActivityFeed() {
   return events.slice(0, 50)
 }
 
+async function getOutreachStreak() {
+  const supabase = await createClient()
+  // Look back up to 60 days
+  const since = new Date()
+  since.setDate(since.getDate() - 60)
+
+  const { data: emails } = await supabase
+    .from("outreach_emails")
+    .select("sent_at")
+    .not("status", "eq", "draft")
+    .not("sent_at", "is", null)
+    .gte("sent_at", since.toISOString())
+    .order("sent_at", { ascending: false })
+
+  if (!emails || emails.length === 0) return { streak: 0, lastSentDaysAgo: null }
+
+  // Build a set of dates (YYYY-MM-DD) that had sent emails
+  const sentDates = new Set(
+    emails.map((e) => e.sent_at!.slice(0, 10))
+  )
+
+  // Count consecutive days backwards from today
+  let streak = 0
+  const today = new Date()
+  today.setHours(0, 0, 0, 0)
+
+  // If no email sent today, check if yesterday starts the streak
+  let checkDate = new Date(today)
+  // First check today
+  let dateStr = checkDate.toISOString().slice(0, 10)
+  if (!sentDates.has(dateStr)) {
+    // No email today — streak starts from yesterday (if applicable)
+    checkDate.setDate(checkDate.getDate() - 1)
+  }
+
+  // Now count backwards
+  for (let i = 0; i < 60; i++) {
+    const ds = checkDate.toISOString().slice(0, 10)
+    if (sentDates.has(ds)) {
+      streak++
+      checkDate.setDate(checkDate.getDate() - 1)
+    } else {
+      break
+    }
+  }
+
+  // Days since last email
+  const lastEmail = emails[0]
+  const lastSentDaysAgo = lastEmail?.sent_at
+    ? Math.floor((Date.now() - new Date(lastEmail.sent_at).getTime()) / 86400000)
+    : null
+
+  return { streak, lastSentDaysAgo }
+}
+
 // ─── Sub-components ───────────────────────────────────────────────────────────
 
 function Delta({ value, isPositiveBetter = true }: { value: number | null; isPositiveBetter?: boolean }) {
@@ -387,10 +446,11 @@ function timeAgo(iso: string) {
 // ─── Page ────────────────────────────────────────────────────────────────────
 
 export default async function CommandPage() {
-  const [quickStats, scoreboard, activityFeed] = await Promise.all([
+  const [quickStats, scoreboard, activityFeed, outreachStreak] = await Promise.all([
     getQuickStats(),
     getScoreboard(),
     getActivityFeed(),
+    getOutreachStreak(),
   ])
 
   const revDelta = scoreboard.revenue.last_week > 0
@@ -459,12 +519,46 @@ export default async function CommandPage() {
 
           {/* Outreach */}
           <div className="space-y-3">
-            <p className="spatia-label text-[10px] text-muted-foreground uppercase tracking-widest border-b border-border/40 pb-1">outreach</p>
+            <div className="flex items-center justify-between border-b border-border/40 pb-1">
+              <p className="spatia-label text-[10px] text-muted-foreground uppercase tracking-widest">outreach</p>
+              {/* Streak indicator */}
+              {outreachStreak.streak > 0 ? (
+                <span className="flex items-center gap-1 text-amber-400">
+                  <Flame size={10} strokeWidth={1.5} />
+                  <span className="font-mono text-[11px]">{outreachStreak.streak}j</span>
+                </span>
+              ) : outreachStreak.lastSentDaysAgo !== null && outreachStreak.lastSentDaysAgo > 0 ? (
+                <span className="spatia-label text-[10px] text-muted-foreground/50">
+                  inactif {outreachStreak.lastSentDaysAgo}j
+                </span>
+              ) : null}
+            </div>
             <div className="grid grid-cols-3 gap-3">
               <ScoreCard label="envoyés" thisWeek={scoreboard.outreach.sent_this_week} lastWeek={scoreboard.outreach.sent_last_week} />
               <ScoreCard label="réponses" thisWeek={scoreboard.outreach.replies_this_week} lastWeek={scoreboard.outreach.replies_last_week} />
               <ScoreCard label="taux" thisWeek={scoreboard.outreach.reply_rate_this_week} lastWeek={scoreboard.outreach.reply_rate_last_week} format="percent" />
             </div>
+            {/* Weekly outreach target progress */}
+            {scoreboard.outreach.weekly_target > 0 && (
+              <div className="space-y-1.5">
+                <div className="flex items-center justify-between">
+                  <span className="spatia-label text-[10px] text-muted-foreground">cible hebdo</span>
+                  <span className="spatia-label text-[10px] text-muted-foreground">
+                    {scoreboard.outreach.sent_this_week} / {scoreboard.outreach.weekly_target}
+                  </span>
+                </div>
+                <div className="h-1 bg-border/40">
+                  <div
+                    className={`h-full transition-all ${
+                      scoreboard.outreach.sent_this_week >= scoreboard.outreach.weekly_target
+                        ? "bg-emerald-400"
+                        : "bg-foreground/40"
+                    }`}
+                    style={{ width: `${Math.min((scoreboard.outreach.sent_this_week / scoreboard.outreach.weekly_target) * 100, 100)}%` }}
+                  />
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Pipeline */}
