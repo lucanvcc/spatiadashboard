@@ -15,6 +15,121 @@ import {
 import { ArrowLeft } from "lucide-react"
 import Link from "next/link"
 
+// ── Best Time Heatmap ──────────────────────────────────────────────────────────
+
+const DAY_LABELS = ["Dim", "Lun", "Mar", "Mer", "Jeu", "Ven", "Sam"]
+const HOUR_LABELS = ["6h", "7h", "8h", "9h", "10h", "11h", "12h", "13h", "14h", "15h", "16h", "17h", "18h", "19h", "20h"]
+const HOURS = [6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20]
+
+interface HeatmapData {
+  matrix: Record<number, Record<number, { sent: number; replied: number }>>
+  bestDay: { day: number; sent: number; replied: number; rate: number } | null
+  bestHour: { hour: number; sent: number; replied: number; rate: number } | null
+  maxRate: number
+  totalSent: number
+}
+
+function BestTimeHeatmap() {
+  const [data, setData] = useState<HeatmapData | null>(null)
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    fetch("/api/outreach/best-time")
+      .then((r) => r.json())
+      .then((d) => setData(d.matrix ? d : null))
+      .catch(() => {})
+      .finally(() => setLoading(false))
+  }, [])
+
+  if (loading) {
+    return <div className="border border-border bg-card p-5 h-32 animate-pulse" />
+  }
+
+  if (!data?.matrix) {
+    return (
+      <div className="border border-border bg-card p-5">
+        <p className="spatia-label text-xs text-muted-foreground mb-2">meilleur moment pour envoyer</p>
+        <p className="text-sm text-muted-foreground">Envoie des courriels pour voir les patterns ici.</p>
+      </div>
+    )
+  }
+
+  const { matrix, bestDay, bestHour, maxRate } = data
+
+  return (
+    <div className="border border-border bg-card p-5 space-y-4">
+      <div className="flex items-center justify-between">
+        <p className="spatia-label text-xs text-muted-foreground">meilleur moment pour envoyer</p>
+        <div className="flex items-center gap-3">
+          {bestDay && (
+            <span className="spatia-label text-[10px] text-emerald-400">
+              {DAY_LABELS[bestDay.day]} = {(bestDay.rate * 100).toFixed(0)}% taux
+            </span>
+          )}
+          {bestHour && (
+            <span className="spatia-label text-[10px] text-emerald-400">
+              {bestHour.hour}h = {(bestHour.rate * 100).toFixed(0)}% taux
+            </span>
+          )}
+        </div>
+      </div>
+
+      <div className="overflow-x-auto">
+        <table className="text-xs border-separate border-spacing-0.5">
+          <thead>
+            <tr>
+              <th className="spatia-label text-[10px] text-muted-foreground/60 font-normal text-right pr-2 w-8" />
+              {HOUR_LABELS.map((h) => (
+                <th key={h} className="spatia-label text-[9px] text-muted-foreground/60 font-normal text-center w-7">{h}</th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {[1, 2, 3, 4, 5, 6, 0].map((day) => (
+              <tr key={day}>
+                <td className="spatia-label text-[10px] text-muted-foreground/60 text-right pr-2">{DAY_LABELS[day]}</td>
+                {HOURS.map((hour) => {
+                  const bucket = matrix[day]?.[hour] ?? { sent: 0, replied: 0 }
+                  const rate = bucket.sent >= 2 ? bucket.replied / bucket.sent : 0
+                  const intensity = maxRate > 0 ? rate / maxRate : 0
+                  const isHot = intensity > 0.7
+                  const isMed = intensity > 0.3
+
+                  return (
+                    <td key={hour} className="p-0">
+                      <div
+                        className={`w-7 h-5 flex items-center justify-center ${
+                          bucket.sent === 0 ? "bg-border/10" :
+                          isHot ? "bg-emerald-400/70" :
+                          isMed ? "bg-emerald-400/30" :
+                          "bg-border/30"
+                        }`}
+                        title={bucket.sent > 0 ? `${bucket.replied}/${bucket.sent} (${(rate * 100).toFixed(0)}%)` : "aucune donnée"}
+                      >
+                        {bucket.sent > 0 && (
+                          <span className={`font-mono text-[8px] ${isHot ? "text-background/80" : "text-muted-foreground/40"}`}>
+                            {bucket.sent}
+                          </span>
+                        )}
+                      </div>
+                    </td>
+                  )
+                })}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      <div className="flex items-center gap-4 text-[10px] text-muted-foreground/50 spatia-label">
+        <div className="flex items-center gap-1"><div className="w-3 h-3 bg-emerald-400/70" /><span>haut taux de réponse</span></div>
+        <div className="flex items-center gap-1"><div className="w-3 h-3 bg-border/30" /><span>bas taux</span></div>
+        <span>chiffres = emails envoyés</span>
+      </div>
+    </div>
+  )
+}
+
 interface AnalyticsData {
   timeSeries: { date: string; sent: number; opened: number; replied: number }[]
   campaignStats: { id: string; name: string; sent: number; opened: number; replied: number; reply_rate: number; open_rate: number }[]
@@ -196,6 +311,9 @@ export default function OutreachAnalyticsPage() {
               })}
             </div>
           </div>
+
+          {/* Best time heatmap */}
+          <BestTimeHeatmap />
 
           {/* Campaign table */}
           {data.campaignStats.length > 0 && (

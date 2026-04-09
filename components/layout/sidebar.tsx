@@ -54,6 +54,7 @@ const NAV_ITEMS: {
       { href: "/outreach/campaigns", label: "campaigns", icon: Megaphone },
       { href: "/outreach/templates", label: "templates", icon: FileText },
       { href: "/outreach/analytics", label: "analytics", icon: BarChart2 },
+      { href: "/outreach/intelligence", label: "intelligence", icon: Activity },
       { href: "/content", label: "content calendar", icon: Calendar },
       { href: "/marketing", label: "marketing", icon: TrendingUp },
       { href: "/marketing/meta", label: "meta ads", icon: TrendingUp },
@@ -68,6 +69,7 @@ const NAV_ITEMS: {
     activeAlso: ["/operations"],
     sub: [
       { href: "/operations/shoots", label: "shoots", icon: Camera },
+      { href: "/operations/shoots/prep", label: "prép du jour", icon: FileText },
       { href: "/operations/tours", label: "matterport", icon: Box },
     ],
   },

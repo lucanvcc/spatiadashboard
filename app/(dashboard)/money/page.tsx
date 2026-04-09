@@ -321,6 +321,28 @@ export default async function MoneyPage() {
         revenueByClient={data.revenueByClient}
       />
 
+      {/* Client concentration risk */}
+      {data.revenueByClient.length > 0 && (() => {
+        const top = data.revenueByClient[0]
+        const totalClientRevenue = data.revenueByClient.reduce((s, c) => s + c.total, 0)
+        const topPct = totalClientRevenue > 0 ? (top.total / totalClientRevenue) * 100 : 0
+        if (topPct < 30) return null
+        return (
+          <div className="border border-amber-400/20 bg-amber-400/5 p-4 space-y-1">
+            <p className="spatia-label text-[10px] text-amber-400/80 uppercase tracking-widest">⚠ concentration client</p>
+            <p className="text-sm">
+              <span className="font-medium">{top.name}</span>
+              {" "}représente{" "}
+              <span className="font-mono text-amber-400">{topPct.toFixed(0)}%</span>
+              {" "}de ton revenu YTD ({formatCurrency(top.total)}).
+            </p>
+            <p className="text-xs text-muted-foreground">
+              Un seul client à plus de 30% = risque de concentration. Cible la diversification.
+            </p>
+          </div>
+        )
+      })()}
+
       {/* Invoice Aging Waterfall */}
       <div className="border border-border bg-card p-5 space-y-4">
         <div className="flex items-center justify-between">
