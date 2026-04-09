@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server"
-import { createClient } from "@/lib/supabase/server"
+import { createAdminClient as createClient } from "@/lib/supabase/server"
 
 function getWeekBounds(date: Date) {
   // Monday = start of week

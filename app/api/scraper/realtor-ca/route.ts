@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server"
-import { createClient } from "@/lib/supabase/server"
+import { createAdminClient as createClient } from "@/lib/supabase/server"
 import { scrapeRealtorCa, estimateResults } from "@/lib/scraper/realtor-ca"
 
 // GET /api/scraper/realtor-ca?query=Brossard&estimate=true

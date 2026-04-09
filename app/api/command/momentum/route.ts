@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server"
-import { createClient } from "@/lib/supabase/server"
+import { createAdminClient as createClient } from "@/lib/supabase/server"
 
 // ─── Momentum Score: 0-100 composite ─────────────────────────────────────────
 // Four pillars, 25 pts each:

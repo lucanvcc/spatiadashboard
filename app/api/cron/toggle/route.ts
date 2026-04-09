@@ -1,4 +1,4 @@
-import { createClient } from "@/lib/supabase/server"
+import { createAdminClient as createClient } from "@/lib/supabase/server"
 import { CRON_JOBS } from "@/lib/cron/index"
 import { NextRequest, NextResponse } from "next/server"
 

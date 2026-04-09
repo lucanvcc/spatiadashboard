@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server"
-import { createClient } from "@/lib/supabase/server"
+import { createAdminClient as createClient } from "@/lib/supabase/server"
 import type { ScrapedAgent } from "@/lib/scraper/realtor-ca"
 
 interface ImportPayload {

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server"
-import { createClient } from "@/lib/supabase/server"
+import { createAdminClient as createClient } from "@/lib/supabase/server"
 import { getActiveAlerts } from "@/lib/alerts"
 
 // Parse YYYY-WW into { start, end } date strings (ISO weeks, Mon–Sun)

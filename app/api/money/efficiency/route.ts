@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server"
-import { createClient } from "@/lib/supabase/server"
+import { createAdminClient as createClient } from "@/lib/supabase/server"
 
 // Estimated shoot duration by tier (drive + setup + scan + breakdown):
 // Tier 1 (≤1500sqft): ~2.5h total

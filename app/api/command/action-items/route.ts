@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server"
-import { createClient } from "@/lib/supabase/server"
+import { createAdminClient as createClient } from "@/lib/supabase/server"
 import type { ActionItemType, ActionItemSeverity } from "@/types/action-items"
 
 // GET /api/command/action-items?status=active&severity=critical,warning&limit=50

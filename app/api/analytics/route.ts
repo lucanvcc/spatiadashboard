@@ -1,4 +1,4 @@
-import { createClient } from "@/lib/supabase/server"
+import { createAdminClient as createClient } from "@/lib/supabase/server"
 import { NextRequest, NextResponse } from "next/server"
 
 // GET /api/analytics?days=30 — recent analytics_daily rows
