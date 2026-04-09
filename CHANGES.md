@@ -1,5 +1,55 @@
 # Spatia Growth Command Center — Overnight Changes
-## Date: 2026-04-09
+## Date: 2026-04-09 (Session 2)
+
+---
+
+### Cycle 1 — Command Center Intelligence
+**Built:** Momentum Score (0-100), Live Pulse dot, Revenue Speedometer, Pipeline Value, Break-even tracker, Weekly Wins carousel, Quick Capture floating button
+**Why:** Transforms the command center from a data display into an ops intelligence layer. Momentum gamifies consistency. Pulse replaces reading. Speedometer shows velocity vs goal. Quick Capture is always one tap away.
+**Files:** `app/api/command/momentum/route.ts`, `components/command/revenue-speedometer.tsx`, `components/command/weekly-wins.tsx`, `components/layout/quick-capture.tsx`, `app/(dashboard)/command/page.tsx`, `app/(dashboard)/layout.tsx`
+
+### Cycle 2 — Invoice Aging Waterfall
+**Built:** Invoice aging chart on /money — shows time from creation to payment in buckets (0-3, 4-7, 8-14, 15-30, 31+ days)
+**Why:** Shows average collection time and identifies slow payers. Average, fastest, slowest days all visible at a glance.
+**Files:** `components/money/invoice-aging.tsx`, `app/(dashboard)/money/page.tsx`
+
+### Cycle 3 — Shoot Prep Checklist
+**Built:** `/operations/shoots/prep` — printable daily prep sheet for today/tomorrow's shoots
+**Why:** Saves 10+ min before every shoot day. Equipment checklist, client contact info, Google Maps link, shoot checklist, post-shoot autopilot reminder. Print button included.
+**Files:** `app/(dashboard)/operations/shoots/prep/page.tsx`, `components/operations/print-button.tsx`
+
+### Cycle 4 — Outreach Intelligence Page
+**Built:** `/outreach/intelligence` — Ghost detector, recurring client detector, dead lead recycler
+**Why:** Ghost detector surfaces contacts who opened 2+ emails but never replied (different pitch needed). Recurring client flags suggest retainer pitch. Dead leads (90+ days dormant) surfaced for recycling.
+**Files:** `app/(dashboard)/outreach/intelligence/page.tsx`, `app/api/outreach/intelligence/route.ts`
+
+### Cycle 5 — Best Time to Send Heatmap + Client Concentration
+**Built:** Day×Hour reply rate heatmap on outreach analytics; client concentration risk warning on money page
+**Why:** Heatmap shows which times historically get replies — surfaces patterns invisible in raw data. Concentration warning fires when one client > 30% of YTD revenue.
+**Files:** `app/(dashboard)/outreach/analytics/page.tsx`, `app/api/outreach/best-time/route.ts`
+
+### Cycle 6 — Revenue Per Hour + Break-even Config
+**Built:** Revenue efficiency by Matterport tier on money page; monthly fixed costs field in Settings > Goals
+**Why:** Revenue/hour surfaces which tier types are most profitable per time invested. Break-even config makes the command center widget accurate to Luca's actual fixed costs.
+**Files:** `app/(dashboard)/money/page.tsx`, `app/(dashboard)/settings/goals/page.tsx`, `app/api/money/efficiency/route.ts`
+
+---
+
+## Summary — Session 2
+**Cycles:** 6
+**Build:** PASS (6/6)
+**Best stuff:** Momentum Score + Live Pulse, Shoot Prep Checklist, Ghost Detector
+**APIs:** Wave [no], Matterport [no]
+**Backlog:**
+- Route optimizer for multi-shoot days (needs address → lat/lng geocoding)
+- Listing change detector (new listings by saved agents)
+- Social proof queue (post-delivery review + IG post drafts)
+- Revenue heatmap by neighborhood/city
+
+---
+
+## Date: 2026-04-09 (Session 1)
+
 ## Session Duration: ~2 hours
 
 ---
