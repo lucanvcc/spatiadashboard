@@ -228,6 +228,92 @@ async function getInvoiceAging() {
   return { buckets, avgDaysToPay, fastestDays, slowestDays }
 }
 
+async function getRevenueEfficiency() {
+  const supabase = await createClient()
+
+  const TIER_HOURS: Record<number, number> = { 1: 2.5, 2: 3, 3: 3.5, 4: 4 }
+  const TIER_LABELS: Record<number, string> = {
+    1: "Tier 1 ≤1500sqft",
+    2: "Tier 2 1500–2500",
+    3: "Tier 3 2500–3500",
+    4: "Tier 4 3500+",
+  }
+
+  const { data: shoots } = await supabase
+    .from("shoots")
+    .select("tier, total_price, base_price, status")
+    .in("status", ["delivered", "paid"])
+    .not("tier", "is", null)
+
+  if (!shoots || shoots.length === 0) return null
+
+  const byTier: Record<number, { count: number; totalRevenue: number; totalHours: number }> = {}
+  for (const shoot of shoots) {
+    const tier = shoot.tier ?? 1
+    const price = shoot.total_price ?? shoot.base_price ?? 0
+    const hours = TIER_HOURS[tier] ?? 3
+    if (!byTier[tier]) byTier[tier] = { count: 0, totalRevenue: 0, totalHours: 0 }
+    byTier[tier].count++
+    byTier[tier].totalRevenue += price
+    byTier[tier].totalHours += hours
+  }
+
+  const tiers = Object.entries(byTier).map(([tier, data]) => ({
+    tier: parseInt(tier),
+    label: TIER_LABELS[parseInt(tier)] ?? `Tier ${tier}`,
+    count: data.count,
+    avgRevenue: data.count > 0 ? Math.round(data.totalRevenue / data.count) : 0,
+    estimatedHours: TIER_HOURS[parseInt(tier)] ?? 3,
+    revenuePerHour: data.totalHours > 0 ? Math.round(data.totalRevenue / data.totalHours) : 0,
+  })).sort((a, b) => b.revenuePerHour - a.revenuePerHour)
+
+  const overallRevenue = shoots.reduce((s, sh) => s + (sh.total_price ?? sh.base_price ?? 0), 0)
+  const overallHours = shoots.reduce((s, sh) => s + (TIER_HOURS[sh.tier ?? 1] ?? 3), 0)
+  const overallRph = overallHours > 0 ? Math.round(overallRevenue / overallHours) : 0
+
+  return { tiers, totalShoots: shoots.length, overallRevenuePerHour: overallRph }
+}
+
+async function RevenueEfficiencySection() {
+  const data = await getRevenueEfficiency()
+  if (!data || data.tiers.length === 0) return null
+
+  const maxRph = Math.max(...data.tiers.map((t) => t.revenuePerHour), 1)
+
+  return (
+    <div className="border border-border bg-card p-5 space-y-4">
+      <div className="flex items-center justify-between">
+        <p className="spatia-label text-xs text-muted-foreground">revenu / heure par tier</p>
+        <span className="spatia-label text-[10px] text-muted-foreground">
+          moy. globale: {formatCurrency(data.overallRevenuePerHour)}/h · {data.totalShoots} shoots
+        </span>
+      </div>
+      <div className="space-y-3">
+        {data.tiers.map((tier) => (
+          <div key={tier.tier} className="space-y-1">
+            <div className="flex items-center justify-between">
+              <span className="spatia-label text-xs text-muted-foreground">{tier.label}</span>
+              <div className="flex items-center gap-4">
+                <span className="spatia-label text-[10px] text-muted-foreground">{tier.count} shoot{tier.count !== 1 ? "s" : ""}</span>
+                <span className="font-mono text-sm">{formatCurrency(tier.revenuePerHour)}/h</span>
+              </div>
+            </div>
+            <div className="h-2 bg-border/30">
+              <div
+                className="h-full bg-foreground/40 transition-all"
+                style={{ width: `${(tier.revenuePerHour / maxRph) * 100}%` }}
+              />
+            </div>
+            <p className="spatia-label text-[10px] text-muted-foreground/60">
+              moy. {formatCurrency(tier.avgRevenue)} · ~{tier.estimatedHours}h estimées
+            </p>
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
+
 // ─── Stat card ────────────────────────────────────────────────────────────────
 
 function StatCard({
@@ -320,6 +406,9 @@ export default async function MoneyPage() {
         statusBreakdown={data.statusBreakdown}
         revenueByClient={data.revenueByClient}
       />
+
+      {/* Revenue efficiency by tier */}
+      <RevenueEfficiencySection />
 
       {/* Client concentration risk */}
       {data.revenueByClient.length > 0 && (() => {
