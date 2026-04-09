@@ -23,6 +23,13 @@ export async function GET(
     )
   }
 
-  const summary = await job.fn()
-  return NextResponse.json({ job: jobName, summary })
+  try {
+    const summary = await job.fn()
+    return NextResponse.json({ job: jobName, summary })
+  } catch (e) {
+    return NextResponse.json(
+      { error: `Job failed: ${(e as Error).message}` },
+      { status: 500 }
+    )
+  }
 }

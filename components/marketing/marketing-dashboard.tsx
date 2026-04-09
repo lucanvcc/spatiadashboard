@@ -6,6 +6,90 @@ import { RevenuePie } from "./revenue-pie"
 import { SpendForm } from "./spend-form"
 import { AiRecommend } from "./ai-recommend"
 import { formatCurrency } from "@/lib/pricing"
+import { toast } from "sonner"
+
+function InstagramWidget() {
+  const [followers, setFollowers] = useState("")
+  const [visits, setVisits] = useState("")
+  const [saving, setSaving] = useState(false)
+  const [lastEntry, setLastEntry] = useState<{ date: string; instagram_followers: number | null; website_visits: number | null } | null>(null)
+
+  useEffect(() => {
+    fetch("/api/analytics?days=7")
+      .then((r) => r.json())
+      .then((data: { date: string; instagram_followers: number | null; website_visits: number | null }[]) => {
+        const latest = data.find((d) => d.instagram_followers != null || d.website_visits != null)
+        if (latest) setLastEntry(latest)
+      })
+  }, [])
+
+  async function handleSave(e: React.FormEvent) {
+    e.preventDefault()
+    if (!followers && !visits) return
+    setSaving(true)
+    const res = await fetch("/api/analytics", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        date: new Date().toISOString().slice(0, 10),
+        ...(followers ? { instagram_followers: followers } : {}),
+        ...(visits ? { website_visits: visits } : {}),
+      }),
+    })
+    if (res.ok) {
+      toast.success("Analytics saved")
+      setFollowers("")
+      setVisits("")
+      const data = await res.json()
+      setLastEntry(data)
+    } else {
+      toast.error("Failed to save analytics")
+    }
+    setSaving(false)
+  }
+
+  return (
+    <div className="border border-border bg-card p-4 space-y-3">
+      <p className="spatia-label text-xs text-muted-foreground">instagram & web metrics (manual)</p>
+      {lastEntry && (
+        <p className="text-xs text-muted-foreground/60">
+          last: {lastEntry.date} · {lastEntry.instagram_followers != null ? `${lastEntry.instagram_followers} followers` : ""} {lastEntry.website_visits != null ? `· ${lastEntry.website_visits} visits` : ""}
+        </p>
+      )}
+      <form onSubmit={handleSave} className="flex items-end gap-2 flex-wrap">
+        <div className="space-y-1">
+          <label className="spatia-label text-[10px] text-muted-foreground">instagram followers</label>
+          <input
+            type="number"
+            min="0"
+            value={followers}
+            onChange={(e) => setFollowers(e.target.value)}
+            placeholder="1234"
+            className="w-28 border border-border bg-background px-2 py-1.5 text-sm focus:outline-none"
+          />
+        </div>
+        <div className="space-y-1">
+          <label className="spatia-label text-[10px] text-muted-foreground">website visits</label>
+          <input
+            type="number"
+            min="0"
+            value={visits}
+            onChange={(e) => setVisits(e.target.value)}
+            placeholder="56"
+            className="w-28 border border-border bg-background px-2 py-1.5 text-sm focus:outline-none"
+          />
+        </div>
+        <button
+          type="submit"
+          disabled={saving || (!followers && !visits)}
+          className="text-xs border border-border px-3 py-1.5 hover:bg-accent transition-colors disabled:opacity-50 spatia-label"
+        >
+          {saving ? "saving..." : "log today"}
+        </button>
+      </form>
+    </div>
+  )
+}
 
 interface SpendRow {
   id: string
@@ -171,6 +255,9 @@ export function MarketingDashboard() {
           </div>
         </div>
       )}
+
+      {/* Instagram / website manual entry */}
+      <InstagramWidget />
 
       {/* AI recommendation */}
       <AiRecommend />

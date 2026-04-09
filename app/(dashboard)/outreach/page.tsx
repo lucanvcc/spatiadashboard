@@ -4,7 +4,7 @@ import { useEffect, useState } from "react"
 import { OutreachEmail } from "@/types/database"
 import { EmailCard } from "@/components/outreach/email-card"
 import Link from "next/link"
-import { BarChart2, Megaphone } from "lucide-react"
+import { BarChart2, Megaphone, FileText } from "lucide-react"
 
 export default function OutreachPage() {
   const [emails, setEmails] = useState<OutreachEmail[]>([])
@@ -46,6 +46,13 @@ export default function OutreachPage() {
           >
             <Megaphone size={12} strokeWidth={1.5} />
             campaigns
+          </Link>
+          <Link
+            href="/outreach/templates"
+            className="flex items-center gap-1.5 text-xs border border-border px-3 py-2 hover:bg-accent transition-colors"
+          >
+            <FileText size={12} strokeWidth={1.5} />
+            templates
           </Link>
           <Link
             href="/outreach/analytics"

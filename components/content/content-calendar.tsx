@@ -14,6 +14,7 @@ interface Post {
   scheduled_at: string | null
   status: ContentStatus
   created_at: string
+  engagement_metrics?: { likes?: number; comments?: number; shares?: number; saves?: number; reach?: number } | null
 }
 
 const PILLARS: { key: ContentPillar; label: string; color: string }[] = [
@@ -53,6 +54,8 @@ export function ContentCalendar() {
   const [form, setForm] = useState({ pillar: "the_work" as ContentPillar, content_type: "post", caption_fr: "", caption_en: "" })
   const [loading, setLoading] = useState(false)
   const [expandedPost, setExpandedPost] = useState<string | null>(null)
+  const [engagingPostId, setEngagingPostId] = useState<string | null>(null)
+  const [engagementForm, setEngagementForm] = useState({ likes: "", comments: "", shares: "", saves: "", reach: "" })
 
   const monthStr = `${year}-${String(month + 1).padStart(2, "0")}`
 
@@ -107,10 +110,31 @@ export function ContentCalendar() {
     const order: ContentStatus[] = ["draft", "scheduled", "posted", "analyzed"]
     const next = order[order.indexOf(post.status) + 1]
     if (!next) return
+    // If going to "analyzed", prompt for engagement metrics
+    if (next === "analyzed") {
+      setEngagingPostId(post.id)
+      setEngagementForm({ likes: "", comments: "", shares: "", saves: "", reach: "" })
+      return
+    }
     const updates: Record<string, unknown> = { id: post.id, status: next }
     if (next === "posted") updates.posted_at = new Date().toISOString()
     const res = await fetch("/api/content", { method: "PATCH", body: JSON.stringify(updates) })
     if (res.ok) { toast.success(`Status → ${next}`); load() }
+  }
+
+  async function saveEngagement(postId: string) {
+    const metrics: Record<string, number> = {}
+    if (engagementForm.likes) metrics.likes = Number(engagementForm.likes)
+    if (engagementForm.comments) metrics.comments = Number(engagementForm.comments)
+    if (engagementForm.shares) metrics.shares = Number(engagementForm.shares)
+    if (engagementForm.saves) metrics.saves = Number(engagementForm.saves)
+    if (engagementForm.reach) metrics.reach = Number(engagementForm.reach)
+    const res = await fetch("/api/content", {
+      method: "PATCH",
+      body: JSON.stringify({ id: postId, status: "analyzed", engagement_metrics: metrics }),
+    })
+    if (res.ok) { toast.success("Post analyzed — engagement logged"); setEngagingPostId(null); load() }
+    else toast.error("Failed to save")
   }
 
   async function deletePost(id: string) {
@@ -287,6 +311,57 @@ export function ContentCalendar() {
               <div className="space-y-1">
                 <p className="spatia-label text-xs text-muted-foreground">english</p>
                 <p className="text-sm whitespace-pre-wrap">{post.caption_en}</p>
+              </div>
+            )}
+            {/* Engagement metrics display */}
+            {post.engagement_metrics && Object.keys(post.engagement_metrics).length > 0 && (
+              <div className="space-y-1.5">
+                <p className="spatia-label text-xs text-muted-foreground">engagement</p>
+                <div className="flex flex-wrap gap-3">
+                  {Object.entries(post.engagement_metrics).map(([key, val]) =>
+                    val != null ? (
+                      <div key={key} className="text-xs">
+                        <span className="text-muted-foreground">{key}: </span>
+                        <span className="font-mono">{val}</span>
+                      </div>
+                    ) : null
+                  )}
+                </div>
+              </div>
+            )}
+            {/* Engagement form (when advancing to analyzed) */}
+            {engagingPostId === post.id && (
+              <div className="border border-border p-3 space-y-3 bg-muted/5">
+                <p className="spatia-label text-xs text-muted-foreground">log engagement metrics</p>
+                <div className="grid grid-cols-3 gap-2">
+                  {(["likes", "comments", "shares", "saves", "reach"] as const).map((field) => (
+                    <div key={field} className="space-y-1">
+                      <label className="spatia-label text-[10px] text-muted-foreground">{field}</label>
+                      <input
+                        type="number"
+                        min="0"
+                        value={engagementForm[field]}
+                        onChange={(e) => setEngagementForm((f) => ({ ...f, [field]: e.target.value }))}
+                        className="w-full border border-border bg-background px-2 py-1 text-xs focus:outline-none"
+                        placeholder="0"
+                      />
+                    </div>
+                  ))}
+                </div>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => saveEngagement(post.id)}
+                    className="spatia-label text-xs px-3 py-1.5 border border-border hover:bg-accent transition-colors"
+                  >
+                    save & mark analyzed
+                  </button>
+                  <button
+                    onClick={() => setEngagingPostId(null)}
+                    className="spatia-label text-xs text-muted-foreground hover:text-foreground transition-colors"
+                  >
+                    cancel
+                  </button>
+                </div>
               </div>
             )}
           </div>

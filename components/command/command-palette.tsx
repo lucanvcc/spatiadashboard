@@ -9,7 +9,7 @@ import {
   Search, X, ChevronRight, LayoutDashboard, Users, Mail, BarChart2,
   Wrench, Camera, Box, Receipt, FileText, ScanSearch, Settings,
   DollarSign, ShieldCheck, CreditCard, FileUp, Calendar, Zap,
-  Clock, Play, Terminal,
+  Clock, Play, Terminal, TrendingUp, Activity, UserPlus, Plus,
 } from "lucide-react"
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -43,11 +43,15 @@ const NAV_COMMANDS = [
   { id: "nav-shoots", label: "Shoots", description: "Gestion des shoots", icon: <Camera size={14} strokeWidth={1.5} />, href: "/operations/shoots" },
   { id: "nav-tours", label: "Tours Matterport", description: "Gestion des slots", icon: <Box size={14} strokeWidth={1.5} />, href: "/operations/tours" },
   { id: "nav-invoices-ops", label: "Factures (ops)", icon: <Receipt size={14} strokeWidth={1.5} />, href: "/operations/invoices" },
+  { id: "nav-meta", label: "Meta Ads (Payées)", description: "Campagnes Meta payées", icon: <TrendingUp size={14} strokeWidth={1.5} />, href: "/marketing/meta" },
+  { id: "nav-meta-organic", label: "Analytics Organiques", description: "Instagram & réseaux sociaux", icon: <Activity size={14} strokeWidth={1.5} />, href: "/marketing/meta/organic" },
+  { id: "nav-meta-import", label: "Import Meta", description: "Importer données Meta / Instagram CSV", icon: <FileUp size={14} strokeWidth={1.5} />, href: "/marketing/meta-import" },
+  { id: "nav-content", label: "Calendrier de contenu", icon: <Calendar size={14} strokeWidth={1.5} />, href: "/content" },
   { id: "nav-money", label: "Finances", description: "Aperçu financier", icon: <DollarSign size={14} strokeWidth={1.5} />, href: "/money" },
+  { id: "nav-money-invoices", label: "Factures (finances)", icon: <Receipt size={14} strokeWidth={1.5} />, href: "/money/invoices" },
   { id: "nav-taxes", label: "Taxes", description: "GST/QST — seuil 30K$", icon: <ShieldCheck size={14} strokeWidth={1.5} />, href: "/money/taxes" },
   { id: "nav-expenses", label: "Dépenses", icon: <CreditCard size={14} strokeWidth={1.5} />, href: "/money/expenses" },
   { id: "nav-import-wave", label: "Import Wave", icon: <FileUp size={14} strokeWidth={1.5} />, href: "/money/import-wave" },
-  { id: "nav-content", label: "Calendrier de contenu", icon: <Calendar size={14} strokeWidth={1.5} />, href: "/content" },
   { id: "nav-reports", label: "Rapport hebdomadaire", icon: <FileText size={14} strokeWidth={1.5} />, href: "/reports/weekly" },
   { id: "nav-scraper", label: "Scraper Realtor.ca", icon: <ScanSearch size={14} strokeWidth={1.5} />, href: "/tools/scraper" },
   { id: "nav-settings", label: "Paramètres", icon: <Settings size={14} strokeWidth={1.5} />, href: "/settings" },
@@ -64,6 +68,14 @@ const CRON_COMMANDS = [
   { id: "cron-campaign-health", jobName: "campaign-health", label: "Santé des campagnes" },
   { id: "cron-shoot-today", jobName: "shoot-today", label: "Shoots du jour" },
   { id: "cron-weekly-report", jobName: "weekly-report", label: "Rapport hebdomadaire" },
+]
+
+const QUICK_ACTIONS = [
+  { id: "quick-new-contact", label: "Nouveau contact", href: "/crm?new=1", icon: <UserPlus size={13} strokeWidth={1.5} className="text-muted-foreground shrink-0" /> },
+  { id: "quick-new-shoot", label: "Nouveau shoot", href: "/operations/shoots?new=1", icon: <Camera size={13} strokeWidth={1.5} className="text-muted-foreground shrink-0" /> },
+  { id: "quick-new-expense", label: "Nouvelle dépense", href: "/money/expenses?new=1", icon: <CreditCard size={13} strokeWidth={1.5} className="text-muted-foreground shrink-0" /> },
+  { id: "quick-new-content", label: "Nouveau contenu", href: "/content?new=1", icon: <Plus size={13} strokeWidth={1.5} className="text-muted-foreground shrink-0" /> },
+  { id: "quick-new-invoice", label: "Nouvelle facture", href: "/money/invoices?new=1", icon: <Receipt size={13} strokeWidth={1.5} className="text-muted-foreground shrink-0" /> },
 ]
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -182,6 +194,14 @@ export function CommandPalette({ isOpen, onClose }: CommandPaletteProps) {
       shortcut: nav.shortcut,
       action: () => navigate(nav.href, nav.label),
     })),
+    // Quick actions
+    ...QUICK_ACTIONS.map((qa) => ({
+      id: qa.id,
+      category: "Actions rapides",
+      label: qa.label,
+      icon: qa.icon,
+      action: () => navigate(qa.href, qa.label),
+    })),
     // Automation
     ...CRON_COMMANDS.map((cron) => ({
       id: cron.id,
@@ -211,10 +231,12 @@ export function CommandPalette({ isOpen, onClose }: CommandPaletteProps) {
   const visibleItems: ResultItem[] = []
 
   if (!q) {
-    // Show navigation subset + automation
+    // Show navigation subset + quick actions + automation
     const nav = filteredCommands.filter((c) => c.category === "Aller à").slice(0, 8)
+    const quick = filteredCommands.filter((c) => c.category === "Actions rapides")
     const auto = filteredCommands.filter((c) => c.category === "Automatisation").slice(0, 5)
     for (const item of nav) visibleItems.push({ kind: "command", item })
+    for (const item of quick) visibleItems.push({ kind: "command", item })
     for (const item of auto) visibleItems.push({ kind: "command", item })
   } else {
     // Search results first

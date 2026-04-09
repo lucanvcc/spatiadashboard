@@ -1,9 +1,15 @@
 import { createClient } from "@/lib/supabase/server"
 import { formatCurrency } from "@/lib/pricing"
-import { AlertTriangle, AlertCircle, Info, Camera, Users } from "lucide-react"
+import { AlertTriangle, AlertCircle, Info, Camera, Users, DollarSign } from "lucide-react"
 import { TrendSection } from "@/components/charts/trend-section"
 import { UnifiedCalendar } from "@/components/dashboard/unified-calendar"
 import { getActiveAlerts, type Alert } from "@/lib/alerts"
+
+async function getMatterportLimit(): Promise<number> {
+  const supabase = await createClient()
+  const { data } = await supabase.from("settings").select("value").eq("key", "matterport_slot_limit").single()
+  return parseInt(data?.value ?? "25", 10)
+}
 
 async function getDashboardStats() {
   const supabase = await createClient()
@@ -23,12 +29,13 @@ async function getDashboardStats() {
     { data: overdueInvoices },
     { count: toursOnSoldCount },
   ] = await Promise.all([
-    supabase.from("revenue_events").select("amount").gte("date", startOfMonth.split("T")[0]),
+    supabase.from("invoices").select("total").eq("status", "paid").gte("paid_at", startOfMonth),
     supabase
-      .from("revenue_events")
-      .select("amount")
-      .gte("date", startOfLastMonth.split("T")[0])
-      .lte("date", endOfLastMonth.split("T")[0]),
+      .from("invoices")
+      .select("total")
+      .eq("status", "paid")
+      .gte("paid_at", startOfLastMonth)
+      .lte("paid_at", endOfLastMonth),
     supabase.from("shoots").select("id").gte("created_at", startOfMonth).eq("status", "booked"),
     supabase
       .from("shoots")
@@ -46,8 +53,8 @@ async function getDashboardStats() {
       .not("listing_id", "is", null),
   ])
 
-  const revenueMtd = (revenueEvents ?? []).reduce((s, r) => s + r.amount, 0)
-  const revenueLastMonth = (lastMonthRevenue ?? []).reduce((s, r) => s + r.amount, 0)
+  const revenueMtd = (revenueEvents ?? []).reduce((s, r) => s + (r.total ?? 0), 0)
+  const revenueLastMonth = (lastMonthRevenue ?? []).reduce((s, r) => s + (r.total ?? 0), 0)
 
   const allContacts = contacts ?? []
   const pipelineTotal = allContacts.filter((c) => c.status !== "churned").length
@@ -120,6 +127,36 @@ function pct(a: number, b: number) {
   return { value: Math.abs(p).toFixed(0) + "%", trend: p >= 0 ? ("up" as const) : ("down" as const) }
 }
 
+async function getMoneyWidgetData() {
+  const supabase = await createClient()
+  const now = new Date()
+  const year = now.getFullYear()
+  const month = now.getMonth()
+  const startOfMonth = new Date(year, month, 1).toISOString().slice(0, 10)
+  const yearStart = `${year}-01-01`
+
+  const [{ data: paidMtd }, { data: outstanding }, { data: ytdInvoices }] = await Promise.all([
+    supabase
+      .from("invoices")
+      .select("total")
+      .eq("status", "paid")
+      .gte("paid_at", startOfMonth),
+    supabase.from("invoices").select("total").in("status", ["sent", "overdue"]),
+    supabase
+      .from("invoices")
+      .select("total")
+      .eq("status", "paid")
+      .gte("paid_at", yearStart),
+  ])
+
+  const revenueMtd = (paidMtd ?? []).reduce((s, i) => s + i.total, 0)
+  const outstandingTotal = (outstanding ?? []).reduce((s, i) => s + i.total, 0)
+  const ytdRevenue = (ytdInvoices ?? []).reduce((s, i) => s + i.total, 0)
+  const thresholdPct = Math.min((ytdRevenue / 30000) * 100, 100)
+
+  return { revenueMtd, outstandingTotal, ytdRevenue, thresholdPct }
+}
+
 async function getContacts() {
   const supabase = await createClient()
   const { data } = await supabase.from("contacts").select("id, name").order("name")
@@ -127,11 +164,13 @@ async function getContacts() {
 }
 
 export default async function HomePage() {
-  const [stats, shoots, contacts, alerts] = await Promise.all([
+  const [stats, shoots, contacts, alerts, money, slotLimit] = await Promise.all([
     getDashboardStats(),
     getUpcomingShoots(),
     getContacts(),
     getActiveAlerts(),
+    getMoneyWidgetData(),
+    getMatterportLimit(),
   ])
 
   const revTrend = pct(stats.revenue_mtd, stats.revenue_last_month)
@@ -168,9 +207,49 @@ export default async function HomePage() {
         />
         <StatCard
           label="matterport slots"
-          value={`${stats.matterport_slots_used} active`}
-          sub="check plan limit"
+          value={`${stats.matterport_slots_used} / ${slotLimit}`}
+          sub={stats.matterport_slots_used / slotLimit >= 0.8 ? "⚠ near limit" : `${slotLimit - stats.matterport_slots_used} slots free`}
+          trend={stats.matterport_slots_used / slotLimit >= 0.8 ? "down" : null}
         />
+      </div>
+
+      {/* Money widgets */}
+      <div className="border border-border bg-card p-5 space-y-4">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <DollarSign size={13} strokeWidth={1.5} className="text-muted-foreground" />
+            <p className="spatia-label text-xs text-muted-foreground">financial snapshot</p>
+          </div>
+          <a href="/money" className="spatia-label text-xs text-muted-foreground hover:text-foreground transition-colors">
+            view money →
+          </a>
+        </div>
+        <div className="grid grid-cols-3 gap-4">
+          <div>
+            <p className="spatia-label text-xs text-muted-foreground">revenue mtd</p>
+            <p className="font-heading text-lg mt-0.5">{formatCurrency(money.revenueMtd)}</p>
+          </div>
+          <div>
+            <p className="spatia-label text-xs text-muted-foreground">outstanding</p>
+            <p className={`font-heading text-lg mt-0.5 ${money.outstandingTotal > 0 ? "text-amber-400" : ""}`}>
+              {formatCurrency(money.outstandingTotal)}
+            </p>
+          </div>
+          <div>
+            <p className="spatia-label text-xs text-muted-foreground">$30k threshold</p>
+            <p className={`font-heading text-lg mt-0.5 ${money.thresholdPct >= 80 ? "text-red-400" : money.thresholdPct >= 60 ? "text-amber-400" : ""}`}>
+              {money.thresholdPct.toFixed(0)}%
+            </p>
+          </div>
+        </div>
+        <div className="h-1.5 bg-border/40">
+          <div
+            className={`h-full transition-all ${
+              money.thresholdPct >= 80 ? "bg-red-400" : money.thresholdPct >= 60 ? "bg-amber-400" : "bg-foreground/40"
+            }`}
+            style={{ width: `${Math.min(money.thresholdPct, 100)}%` }}
+          />
+        </div>
       </div>
 
       {/* Revenue vs Spend chart */}

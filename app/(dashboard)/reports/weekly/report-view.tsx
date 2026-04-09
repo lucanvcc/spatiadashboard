@@ -54,6 +54,17 @@ interface ReportData {
     pillar_distribution: Record<string, number>
     total_engagement: number
   }
+  financial?: {
+    revenue_week: number
+    expenses_week: number
+    net_profit_week: number
+    outstanding_total: number
+    overdue_total: number
+    gst_collected_mtd: number
+    qst_collected_mtd: number
+    ytd_revenue: number
+    threshold_30k_pct: number
+  }
   alerts: {
     type: string
     severity: "info" | "warning" | "critical"
@@ -464,6 +475,86 @@ export function WeeklyReportView({ week }: { week?: string }) {
           </div>
         )}
       </Section>
+
+      {/* Financial Health */}
+      {data.financial && (
+        <Section title="financial health">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+            <StatBox
+              label="revenue this week"
+              value={formatCurrency(data.financial.revenue_week)}
+            />
+            <StatBox
+              label="expenses this week"
+              value={formatCurrency(data.financial.expenses_week)}
+            />
+            <StatBox
+              label="net profit"
+              value={formatCurrency(data.financial.net_profit_week)}
+              sub={
+                <span
+                  className={
+                    data.financial.net_profit_week >= 0 ? "text-emerald-400" : "text-red-400"
+                  }
+                >
+                  {data.financial.net_profit_week >= 0 ? "profitable" : "at a loss"}
+                </span>
+              }
+            />
+            <StatBox
+              label="outstanding"
+              value={formatCurrency(data.financial.outstanding_total)}
+              sub={
+                data.financial.overdue_total > 0 ? (
+                  <span className="text-red-400">
+                    {formatCurrency(data.financial.overdue_total)} overdue
+                  </span>
+                ) : (
+                  <span className="text-muted-foreground">none overdue</span>
+                )
+              }
+            />
+          </div>
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+            <StatBox
+              label="ytd revenue"
+              value={formatCurrency(data.financial.ytd_revenue)}
+            />
+            <StatBox
+              label="GST collected ytd"
+              value={formatCurrency(data.financial.gst_collected_mtd)}
+            />
+            <StatBox
+              label="QST collected ytd"
+              value={formatCurrency(data.financial.qst_collected_mtd)}
+            />
+          </div>
+          <div className="border border-border bg-card p-4 space-y-2">
+            <div className="flex justify-between text-xs text-muted-foreground">
+              <span>$30k gst/qst threshold</span>
+              <span>{data.financial.threshold_30k_pct.toFixed(1)}%</span>
+            </div>
+            <div className="h-2 bg-border/40">
+              <div
+                className={`h-full transition-all ${
+                  data.financial.threshold_30k_pct >= 80
+                    ? "bg-red-400"
+                    : data.financial.threshold_30k_pct >= 60
+                    ? "bg-amber-400"
+                    : "bg-foreground/40"
+                }`}
+                style={{ width: `${Math.min(data.financial.threshold_30k_pct, 100)}%` }}
+              />
+            </div>
+            <p className="text-xs text-muted-foreground">
+              {formatCurrency(data.financial.ytd_revenue)} of $30,000 —{" "}
+              <a href="/money/taxes" className="hover:underline">
+                view tax tracker →
+              </a>
+            </p>
+          </div>
+        </Section>
+      )}
 
       {/* Content */}
       <Section title="content">

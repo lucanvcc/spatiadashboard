@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from "react"
 import { toast } from "sonner"
 
-const MATTERPORT_PLAN_SLOTS = 25 // user can update this
+// Slot limit is loaded from /api/settings at runtime
 
 interface Tour {
   id: string
@@ -22,6 +22,7 @@ export function ToursManager() {
   const [showArchived, setShowArchived] = useState(false)
   const [addOpen, setAddOpen] = useState(false)
   const [loading, setLoading] = useState(false)
+  const [slotLimit, setSlotLimit] = useState(25)
 
   const load = useCallback(async () => {
     const res = await fetch("/api/tours")
@@ -30,10 +31,16 @@ export function ToursManager() {
 
   useEffect(() => { load() }, [load])
 
+  useEffect(() => {
+    fetch("/api/settings")
+      .then((r) => r.json())
+      .then((d) => { if (d.matterport_slot_limit) setSlotLimit(parseInt(d.matterport_slot_limit, 10)) })
+  }, [])
+
   const active = tours.filter((t) => t.status === "active")
   const archived = tours.filter((t) => t.status === "archived")
   const onSold = active.filter((t) => t.listing_id) // tours linked to a listing (assume sold detection elsewhere)
-  const slotPct = Math.round((active.length / MATTERPORT_PLAN_SLOTS) * 100)
+  const slotPct = Math.round((active.length / slotLimit) * 100)
 
   async function archiveTour(id: string) {
     const res = await fetch("/api/tours", {
@@ -48,11 +55,29 @@ export function ToursManager() {
     e.preventDefault()
     setLoading(true)
     const fd = new FormData(e.currentTarget)
+    const realtorUrl = (fd.get("realtor_url") as string)?.trim() || null
+    const address = (fd.get("address") as string)?.trim() || null
+
+    let listing_id: string | null = null
+    if (realtorUrl && address) {
+      // Create listing and link it
+      const lr = await fetch("/api/listings", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ address, realtor_url: realtorUrl, status: "active" }),
+      })
+      if (lr.ok) {
+        const l = await lr.json()
+        listing_id = l.id
+      }
+    }
+
     const res = await fetch("/api/tours", {
       method: "POST",
       body: JSON.stringify({
         matterport_id: fd.get("matterport_id"),
         title: fd.get("title") || null,
+        listing_id,
       }),
     })
     setLoading(false)
@@ -68,7 +93,7 @@ export function ToursManager() {
       <div className="border border-border bg-card p-5 space-y-3">
         <div className="flex items-center justify-between">
           <p className="spatia-label text-xs text-muted-foreground">slot utilization</p>
-          <p className="spatia-label text-xs">{active.length} / {MATTERPORT_PLAN_SLOTS}</p>
+          <p className="spatia-label text-xs">{active.length} / {slotLimit}</p>
         </div>
         <div className="h-2 bg-border rounded-full overflow-hidden">
           <div
@@ -97,9 +122,11 @@ export function ToursManager() {
       {/* Actions */}
       <div className="flex items-center gap-3">
         {addOpen ? (
-          <form onSubmit={handleAdd} className="flex items-center gap-2">
-            <input name="matterport_id" required placeholder="Matterport model ID" className="bg-background border border-border px-3 py-2 text-sm w-52" />
-            <input name="title" placeholder="Title (optional)" className="bg-background border border-border px-3 py-2 text-sm w-44" />
+          <form onSubmit={handleAdd} className="flex flex-wrap items-center gap-2">
+            <input name="matterport_id" required placeholder="Matterport model ID" className="bg-background border border-border px-3 py-2 text-sm w-48" />
+            <input name="title" placeholder="Title (opt)" className="bg-background border border-border px-3 py-2 text-sm w-36" />
+            <input name="address" placeholder="Address (opt)" className="bg-background border border-border px-3 py-2 text-sm w-44" />
+            <input name="realtor_url" placeholder="Realtor.ca URL (opt)" className="bg-background border border-border px-3 py-2 text-sm w-56" />
             <button type="submit" disabled={loading} className="spatia-label text-xs px-3 py-2 bg-foreground text-background disabled:opacity-50">
               {loading ? "saving..." : "add"}
             </button>

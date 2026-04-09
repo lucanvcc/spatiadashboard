@@ -45,14 +45,28 @@ export async function runAnalyticsSnapshot() {
       .gte("delivered_at", todayStart)
       .lte("delivered_at", todayEnd)
 
-    // Revenue from revenue_events today
+    // Revenue from paid invoices today (primary source — reflects Wave imports)
+    const { data: invoiceRows } = await supabase
+      .from("invoices")
+      .select("total")
+      .eq("status", "paid")
+      .gte("paid_at", todayStart)
+      .lte("paid_at", todayEnd)
+
+    const invoiceRevenue = (invoiceRows ?? []).reduce(
+      (sum: number, r: { total: number }) => sum + (r.total ?? 0),
+      0
+    )
+
+    // Also check revenue_events for any non-invoice revenue (fallback)
     const { data: revenueRows } = await supabase
       .from("revenue_events")
       .select("amount")
       .gte("date", todayStr)
       .lte("date", todayStr)
+      .is("invoice_id", null) // Only unlinked events to avoid double-counting
 
-    const revenue = (revenueRows ?? []).reduce(
+    const revenue = invoiceRevenue + (revenueRows ?? []).reduce(
       (sum: number, r: { amount: number }) => sum + (r.amount ?? 0),
       0
     )
@@ -75,7 +89,8 @@ export async function runAnalyticsSnapshot() {
         emails_sent: emailsSent ?? 0,
         emails_opened: emailsOpened ?? 0,
         replies: emailsReplied ?? 0,
-        shoots_booked: (shootsBooked ?? 0) + (shootsCompleted ?? 0),
+        shoots_booked: shootsBooked ?? 0,
+        shoots_completed: shootsCompleted ?? 0,
         revenue,
         ad_spend: adSpend,
       },

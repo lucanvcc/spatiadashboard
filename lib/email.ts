@@ -22,10 +22,19 @@ export async function sendEmail({
   subject: string
   body: string
 }) {
+  const smtpUser = process.env.ZOHO_SMTP_USER
+  const smtpPass = process.env.ZOHO_SMTP_PASSWORD
+  if (!smtpUser || !smtpPass) {
+    throw new Error(
+      "[Spatia] ZOHO_SMTP_USER and ZOHO_SMTP_PASSWORD must be set to send outreach emails. " +
+        "Add them to .env.local (see .env.local.example)."
+    )
+  }
+
   const fullBody = body + UNSUBSCRIBE_LINE
 
   return transporter.sendMail({
-    from: `"Luca — Spatia" <${process.env.ZOHO_SMTP_USER}>`,
+    from: `"Luca — Spatia" <${smtpUser}>`,
     to,
     subject,
     text: fullBody,

@@ -1,364 +1,225 @@
 # CLAUDE.md — Spatia Growth Command Center
 
-> **Save this file as `CLAUDE.md` at the root of your project. Claude Code reads it automatically on every session.**
-
----
-
 ## PROJECT IDENTITY
+**Spatia Growth Command Center** — self-hosted Next.js operations dashboard for Spatia (spatia.ca), a 3D virtual tour studio targeting Montreal South Shore real estate agents.
 
-You are building **Spatia Growth Command Center** — a self-hosted Next.js web dashboard that serves as the central nervous system for **Spatia** (spatia.ca), a 3D virtual tour studio targeting real estate agents on Montreal's South Shore and Greater Montreal area.
+**Stack**: Next.js 16 (App Router) · TypeScript strict · Tailwind · shadcn/ui · Supabase (Postgres + Auth) · Recharts · node-cron · Nodemailer/Zoho SMTP
 
-This is not a toy project. This is a revenue-generating operations platform for a real business. Every feature must be production-grade, reliable, and designed to save the founder (Luca) time while generating more revenue.
-
----
-
-## BRAND IDENTITY — MEMORIZE THIS
-
-### Company
-- **Legal name**: Studio Spatia (sole proprietorship, NEQ 2281954034)
-- **Trade name**: Spatia
-- **Domain**: spatia.ca
-- **Instagram**: @spatia.ca
-- **Email**: lucanovac@spatia.ca (Zoho Mail)
-- **Location**: Brossard, Quebec, Canada
-- **Service area**: Montreal South Shore + Greater Montreal
-- **Language**: Bilingual French/English. French-first (Quebec Bill 96 compliance). All outreach in French unless agent is clearly anglophone.
-
-### Core Service
-Matterport-processed 3D virtual tours for real estate listings. Shot with Ricoh Theta Z1. Same-day delivery is the key differentiator. Future upsells: CubiCasa ANSI floor plans, Gaussian splatting premium tours.
-
-### Pricing (CONFIDENTIAL — never expose full grid publicly)
-| Tier | Sq ft | Regular | Beta (first 5 clients) |
-|------|--------|---------|----------------------|
-| 1 | ≤1,500 | $150 | PRIVATE |
-| 2 | 1,500–2,500 | $200 | PRIVATE |
-| 3 | 2,500–3,500 | $275 | PRIVATE |
-| 4 | 3,500+ | $350 | PRIVATE |
-| Rush | Same-day | +$50 | +$50 |
-| Travel | >30km from Brossard | +$25 | +$25 |
-
-Free trial shoots: invoice at full price with 100% discount applied (anchors perceived value). Website only shows "starting at" anchor.
-
-### Visual Identity
-- **Aesthetic**: Brutalist/editorial. Lowercase typography. Concrete-heavy, moody, film-analog references (Kodak Portra 400, Ilford HP5). Asymmetric compositions.
-- **Logo**: Serif "S" icon (app icon style) + "spatia" wordmark in spaced lowercase serif. Black on white, white on black.
-- **Dashboard aesthetic**: Dark mode default, serif accent typography, clean data visualization, editorial feel. NOT generic SaaS blue. Think: Bloomberg Terminal meets Kinfolk magazine.
-
-### Positioning Principles (CRITICAL — inform all copy and outreach)
-1. **Never signal inexperience.** Spatia presents as a busy, selective studio — never as "new" or "building a portfolio."
-2. **Speed is the weapon.** Same-day delivery kills competitors who take 48–72h.
-3. **Geographic ownership.** South Shore is home turf. Panosphere does commercial/institutional; Spatia owns the individual agent niche.
-4. **Bilingual edge.** Most competitors are French-only or English-only. Spatia does both natively.
-5. **Stats belong in outreach, not on the website.** The site is editorial. Data goes in cold emails and DMs.
-6. **Move in silence.** Beta pricing and deals stay private. Public content projects premium and selectivity.
-7. **Positioning over discounting.** Never compete on price alone.
-
-### Competitors (for reference, not for public mention)
-- **EGP Photographie** — generalist real estate media
-- **Panosphere 360 Boucherville** — commercial/institutional focus
-- **photographieimmobiliere.com** — established but not Matterport-native
-- Spatia's structural advantage: lower overhead + same Matterport platform = competitive pricing without margin sacrifice.
+**No AI API at runtime. No n8n. No external automation tools.** All automation is built-in via API routes + node-cron.
 
 ---
 
-## EXISTING TOOL STACK — INTEGRATE WITH THESE
+## BUSINESS CONTEXT (keep in mind for all copy/logic)
 
-| Tool | Purpose | Integration Priority |
-|------|---------|---------------------|
-| **Supabase** | Database + Auth + Realtime | PRIMARY — all dashboard data lives here |
-| **Zoho Mail** | Email (SMTP: smtp.zoho.com) | Send outreach emails via Nodemailer |
-| **Google Sheets** | Current CRM (to be migrated) | Import existing contacts, then deprecate |
-| **Wave** | Invoicing + bookkeeping | Read invoice data via CSV export (no API) |
-| **Formspree** | Quote form intake | Webhook to Supabase |
-| **Realtor.ca** | Agent sourcing + listing monitoring | Scraping for lead gen + sold detection |
-| **Cloudflare R2** | Video/asset storage | Serve media assets |
-| **Matterport** | 3D tour platform | Track active/archived tours, slot management |
-| **Instagram** | @spatia.ca | Content calendar + analytics tracking |
-
-### What we are NOT using
-- **No n8n** — all automation is built-in via Next.js API routes + node-cron
-- **No Anthropic API** — no runtime AI calls. Email drafting, captions, analysis are done manually in Claude.ai by Luca. The dashboard is a pure data + operations tool.
-- **No external automation platforms** — everything runs inside the Next.js app
+- **Founder**: Luca — lucanovac@spatia.ca · Brossard QC · @spatia.ca
+- **Service**: Matterport 3D virtual tours, Ricoh Theta Z1, same-day delivery is the key differentiator
+- **Pricing**: Tier 1 ≤1500sqft $150 · Tier 2 1500–2500 $200 · Tier 3 2500–3500 $275 · Tier 4 3500+ $350 · Rush +$50 · Travel >30km +$25
+- **Compliance**: CASL (implied consent, unsubscribe in every email, 1 follow-up max) · Quebec Bill 96 (French-first) · GST 5% + QST 9.975% · $30K threshold alert
+- **Dashboard aesthetic**: Dark mode, brutalist/editorial, lowercase labels, serif headings — NOT generic SaaS blue
 
 ---
 
-## ARCHITECTURE
+## WHAT IS FULLY BUILT (do not re-plan these)
 
-### Stack
+### Pages & Routes
+| Route | What it does |
+|-------|-------------|
+| `/` | Home dashboard: revenue MTD (from invoices), shoots, pipeline funnel, Matterport slots (from settings table), alerts |
+| `/command` | Command center: scoreboard, action items, activity feed, weekly outreach target progress bar |
+| `/crm` | Kanban board (9 stages). Contact drawer: edit, email history, compose email via templates, add notes |
+| `/crm/import` | CSV import with deduplication |
+| `/outreach` | Email queue (pending_review emails) |
+| `/outreach/campaigns` | Campaign CRUD + bulk email draft generation |
+| `/outreach/templates` | Email template CRUD — view/create/edit/delete templates with variable detection |
+| `/outreach/analytics` | Time series + campaign stats + funnel |
+| `/marketing` | Ad spend overview, channel KPIs, revenue by source pie |
+| `/marketing/meta` | Meta ads detail + history |
+| `/marketing/meta/organic` | Organic social metrics |
+| `/marketing/meta-import` | CSV import for Meta ads |
+| `/content` | 5-pillar Instagram content calendar (the_work/edge/process/proof/culture). Engagement metrics on analyzed posts. FR+EN captions. |
+| `/operations/shoots` | Shoots list/filter, status advancement (booked→shot→processing→delivered→paid), "create invoice" button on delivered shoots, Matterport URL field |
+| `/operations/tours` | Matterport slot gauge (limit from settings), archive, add tour with optional Realtor.ca listing URL |
+| `/operations/invoices` | Invoice CRUD with GST+QST auto-calc |
+| `/money` | Revenue overview (MTD/QTD/YTD), charts, net profit, recent invoices |
+| `/money/invoices` | Full invoice management |
+| `/money/taxes` | Tax summary, YTD GST/QST, snapshots |
+| `/money/expenses` | Expense tracking with categories |
+| `/money/import-wave` | Wave CSV import (invoices + expenses) with review workflow |
+| `/notes` | Standalone journal — categories: general/crm/strategy/ops/finance/ideas |
+| `/reports` | Weekly report list |
+| `/reports/weekly` | Live + stored weekly reports (revenue, outreach, shoots, marketing, content, alerts) |
+| `/settings` | Settings index |
+| `/settings/cron` | Cron job status, last run, manual triggers, enable/disable |
+| `/settings/email` | Zoho SMTP config display + test send button |
+| `/settings/goals` | Edit monthly_revenue_goal, weekly_outreach_target, matterport_slot_limit, posting_frequency_per_week (all saved to `settings` table) |
+| `/settings/export` | CSV export (11 tables) + danger zone (purge cron logs, purge dismissed alerts) |
+| `/tools/scraper` | Realtor.ca agent scraper → import to contacts |
+
+### API Routes
 ```
-Frontend:  Next.js 14+ (App Router) + Tailwind CSS + shadcn/ui
-Backend:   Next.js API routes + Supabase (Postgres + Auth + Realtime)
-ORM:       Drizzle or Prisma (be consistent)
-Charts:    Recharts or Tremor
-Auth:      Supabase Auth (email/password, single user)
-Hosting:   Local dev → deploy to Railway/Fly.io/VPS when ready
-Email:     Nodemailer with Zoho SMTP
-Scraping:  Cheerio + fetch for Realtor.ca (respect rate limits)
-Scheduling: node-cron for all background jobs (runs while server is up)
+GET/PATCH  /api/settings                    — settings table key-value store
+POST       /api/settings/email/test         — Zoho SMTP test send
+GET/DELETE /api/settings/export             — CSV export + purge actions
+GET/POST   /api/outreach/templates          — email template CRUD
+GET/PATCH/DELETE /api/outreach/templates/[id]
+GET/POST   /api/outreach/emails             — email queue
+GET/PATCH/DELETE /api/outreach/emails/[id]
+POST       /api/outreach/emails/[id]/send   — send via Zoho SMTP
+GET/POST   /api/outreach/campaigns
+GET/PATCH/DELETE /api/outreach/campaigns/[id]
+POST       /api/outreach/campaigns/[id]/generate — bulk draft creation
+GET        /api/outreach/analytics
+GET/POST   /api/contacts                    — list + create
+GET/PATCH  /api/contacts/[id]              — detail + update (includes emails + notes)
+GET        /api/contacts/search
+POST       /api/contacts/import             — CSV upload
+GET/POST   /api/shoots
+GET/PATCH/DELETE /api/shoots/[id]
+GET/POST/PATCH /api/tours
+GET/POST   /api/invoices
+PATCH      /api/invoices                    — marking paid auto-sets paid_at
+GET/POST   /api/money/expenses
+GET/PATCH/DELETE /api/money/expenses/[id]
+GET/POST   /api/money/import-wave
+GET        /api/money/import-wave/[batchId]
+PATCH      /api/money/import-wave/[batchId]/rows/[rowId]
+GET/POST   /api/content                    — content_calendar CRUD
+DELETE     /api/content
+GET/POST   /api/marketing-spend
+GET/POST   /api/analytics                  — analytics_daily manual entry (Instagram followers, website visits)
+GET/POST   /api/listings                   — listing monitoring records
+GET/POST/DELETE /api/notes                 — standalone notes
+GET        /api/revenue-by-source          — auto-calculated from invoices+contacts.source
+GET        /api/dashboard/trend
+GET        /api/calendar/events
+GET        /api/calendar/feed.ics
+GET/POST   /api/command/action-items
+PATCH      /api/command/action-items/[id]
+GET        /api/command/activity-feed
+POST       /api/command/log
+GET        /api/command/scoreboard
+GET        /api/command/search
+GET        /api/cron/status
+PATCH      /api/cron/toggle
+POST       /api/cron/trigger/[jobName]
+GET/POST   /api/reports/weekly
+GET/POST   /api/scraper/realtor-ca
+POST       /api/scraper/import
+POST       /api/webhooks/form-submission    — Formspree intake
+GET        /api/health
 ```
 
-### Built-in Automation (replaces n8n entirely)
-All automation lives as Next.js API routes + node-cron jobs in `/lib/cron/`:
-
-```
-/lib/cron/index.ts              — Registers all cron jobs on server start
-/lib/cron/listing-monitor.ts    — Daily 2am: check if listings tied to active tours are sold
-/lib/cron/followup-reminder.ts  — Daily 9am: flag contacts due for follow-up
-/lib/cron/analytics-snapshot.ts — Daily 11:59pm: aggregate daily metrics into analytics_daily
-/lib/cron/tour-slot-check.ts    — Daily 6am: count active Matterport tours vs plan limit
-/lib/cron/tax-threshold.ts      — Weekly Monday 8am: check cumulative revenue vs $30K threshold
-/lib/cron/invoice-overdue.ts    — Daily 8am: find overdue unpaid invoices
-
-/api/webhooks/form-submission    — POST: intake from Formspree quote form
-/api/cron/trigger/[job]          — GET (auth required): manually trigger any cron job
-/api/contacts/import             — POST: CSV upload, parse, deduplicate, insert
-```
-
-### Database Schema (Supabase/Postgres)
-Core tables with proper foreign keys, indexes, and RLS policies:
-
-```
-contacts          — All leads/agents (name, email, phone, agency, source, status, stage, notes, tags, consent_basis, unsubscribed, created_at, updated_at)
-outreach_emails   — Every email sent (contact_id, subject, body, status, sent_at, opened_at, replied_at, campaign_id)
-campaigns         — Outreach campaigns (name, type, status, template_id, target_criteria, stats_cache)
-email_templates   — Reusable templates with variables (name, subject_template, body_template, language, variables_schema)
-shoots            — Booked/completed shoots (contact_id, address, sq_ft, tier, price, rush, travel_surcharge, status, scheduled_at, delivered_at, matterport_url)
-invoices          — Synced from Wave or manual (shoot_id, contact_id, amount, gst, qst, total, status, due_at, paid_at)
-tours             — Active Matterport tours (shoot_id, matterport_id, listing_url, status, views, archived_at)
-listings          — Monitored Realtor.ca listings (address, mls_number, agent_name, contact_id, status, last_checked, sold_detected_at)
-marketing_spend   — Ad spend tracking (channel, amount, date, campaign_name, impressions, clicks, leads_generated)
-revenue_events    — Revenue attribution (source_channel, contact_id, shoot_id, amount, date)
-content_calendar  — Social content planning (platform, content_type, pillar, caption_fr, caption_en, media_url, scheduled_at, posted_at, engagement_metrics)
-analytics_daily   — Daily aggregated metrics (date, emails_sent, emails_opened, replies, shoots_booked, shoots_completed, revenue, ad_spend, instagram_followers, website_visits)
-notes             — General notes/journal (content, category, created_at)
-cron_logs         — Job run history (job_name, status, result_summary, ran_at, duration_ms)
-settings          — Key-value config store (matterport_slot_limit, monthly_revenue_goal, weekly_outreach_target, etc.)
-weekly_reports    — Stored weekly report snapshots (week_number, year, data_json, created_at)
-```
+### Cron Jobs (`/lib/cron/`)
+All registered in `instrumentation.ts` on server start via `node-cron`.
+| Job | Schedule | What it does |
+|-----|----------|-------------|
+| `listing-monitor` | Daily 2am | Check Realtor.ca listing URLs for sold signal |
+| `followup-reminder` | Daily 9am | Flag contacts in first_email_sent >7 days → `followup_due` tag |
+| `analytics-snapshot` | Daily 11:59pm | Aggregate day metrics → analytics_daily |
+| `tour-slot-check` | Daily 6am | Count active tours vs limit from settings, create action items |
+| `tax-threshold` | Monday 8am | Sum YTD revenue vs $30K threshold |
+| `invoice-overdue` | Daily 8am | Flag unpaid invoices past due_at |
+| `weekly-report` | Monday 7am | Generate weekly_reports snapshot |
+| `campaign-health` | ? | Campaign health checks |
+| `shoot-today` | ? | Same-day shoot reminders |
 
 ---
 
-## MODULE 1: OUTREACH COMMAND CENTER
+## CRITICAL DATA FLOWS (do not break these)
 
-### Lead Sourcing
-- **Realtor.ca scraper**: Scrape agent profiles from South Shore brokerages. Extract: name, email, phone, agency, areas served, recent listings.
-- **Manual import**: CSV upload for leads from networking, open houses, etc.
-- **Deduplication**: Match on email + name fuzzy match. Never create duplicate contacts.
+**Revenue tracking**: Both home dashboard AND money page read from `invoices` (status=`paid`, field=`total`). Do NOT use `revenue_events` for revenue display — that table is for manual marketing attribution only.
 
-### CRM Pipeline
-Visual Kanban board with stages:
+**Revenue by source**: `/api/revenue-by-source` auto-calculates from paid invoices + `contacts.source` field. Supplements with manual `revenue_events` if any exist.
+
+**Matterport slot limit**: Stored as `settings` key `matterport_slot_limit`. Read by: home dashboard, `/operations/tours` (ToursManager component), cron `tour-slot-check`, command scoreboard. If you need it, fetch `/api/settings`.
+
+**Settings table keys**: `matterport_slot_limit` (default 25) · `monthly_revenue_goal` (default 3000) · `weekly_outreach_target` (default 20) · `posting_frequency_per_week` (default 3) · `cron_*_enabled` flags.
+
+**Email sending**: All outreach emails go through Nodemailer → Zoho SMTP (smtp.zoho.com:465). `ZOHO_SMTP_USER` and `ZOHO_SMTP_PASSWORD` must be in `.env.local`. CASL unsubscribe line is auto-appended in `lib/email.ts`. Emails are created as `status: "pending_review"` drafts and sent from the outreach queue.
+
+**Email templates**: Stored in `email_templates` table. Variables use `{variable_name}` syntax. The contact drawer compose flow: pick template → auto-fill `{agent_name}` and `{agency}` from contact → user fills remaining vars → creates `pending_review` draft via `POST /api/outreach/emails`.
+
+---
+
+## KEY FILE LOCATIONS
+
 ```
-New Lead → Researched → First Email Sent → Follow-up Sent → Replied → Meeting Booked → Trial Shoot → Paying Client → Churned
-```
-- Drag-and-drop between stages
-- Click any contact to see full history (emails, notes, shoots, invoices)
-- Bulk actions: tag, move stage, export
-- Search + filter by: stage, agency, area, tags, date range
-
-### Email Outreach Engine
-- **CASL compliance is NON-NEGOTIABLE**: Unsubscribe in every email. Implied consent only (publicly listed business contacts). Log consent basis. One follow-up max.
-- **Human-in-the-loop**: Luca writes/edits using templates + variable substitution. NO runtime AI. Luca drafts in Claude.ai separately, pastes into templates.
-- **Email templates**: Variables: `{agent_name}`, `{agency}`, `{listing_address}`, `{compliment}`, `{cta}`. Quick-fill UI: select template → select contact → fill variables → preview → send.
-- **Template library** (pre-load):
-  - Cold outreach (French, casual, property-specific compliment lead)
-  - Follow-up (5–7 days, brief, one new angle, easy out)
-  - Post-shoot delivery (Matterport link + invoice)
-  - Thank you / referral ask
-- **Tracking**: Log sent/opened/replied/bounced per email.
-- **Zoho SMTP**: Nodemailer — Host: smtp.zoho.com, Port: 465 (SSL)
-
-### Outreach Analytics
-- Emails sent / opened / replied (daily, weekly, monthly)
-- Reply rate by campaign and template
-- Pipeline conversion funnel
-- Best templates by reply rate
-- Send time heatmap
-- "Going cold" alerts
-
-### Outreach Copy Guidelines (for Luca when drafting in Claude.ai)
-```
-TONE: Short, natural, property-specific compliment lead. Québécois French.
-      Max 4-5 sentences. Subject under 6 words.
-
-STRUCTURE:
-  1. Property-specific compliment (real listing detail)
-  2. One-sentence value prop (speed + quality)
-  3. Soft CTA ("seriez-vous ouvert à un essai?")
-
-FOLLOW-UP (5-7 days, ONE only):
-  1. Brief, reference first email
-  2. One new angle
-  3. Easy out: "Si c'est pas le bon moment, aucun souci."
-
-NEVER: mention being new, offer free publicly, corporate language, >1 follow-up, CC/BCC
+app/(dashboard)/                — all dashboard pages
+app/api/                        — all API routes
+components/layout/sidebar.tsx   — nav with all routes
+components/crm/contact-drawer.tsx — contact detail + compose email
+components/operations/shoots-list.tsx — shoots with "create invoice" button
+components/operations/tours-manager.tsx — reads slot limit from settings
+components/content/content-calendar.tsx — engagement metrics on analyzed posts
+components/marketing/marketing-dashboard.tsx — includes Instagram widget
+lib/cron/                       — all cron job implementations
+lib/email.ts                    — Nodemailer/Zoho transporter + CASL line
+lib/pricing.ts                  — calculateShootPrice(), calculateTax(), formatCurrency()
+lib/supabase/client.ts          — browser Supabase client
+lib/supabase/server.ts          — server Supabase client (async createClient())
+lib/alerts.ts                   — getActiveAlerts() for home dashboard
+lib/action-items.ts             — upsertActionItem() used by cron jobs
+types/database.ts               — Contact, OutreachEmail, Campaign, PIPELINE_STAGES
+types/index.ts                  — ShootStatus, ContentPillar, ContentStatus, etc.
+supabase/migrations/            — 009 migrations, all applied to Supabase
 ```
 
 ---
 
-## MODULE 2: MARKETING & AD ANALYTICS
+## DATABASE SCHEMA (key tables)
 
-### Ad Spend Tracker
-- Manual entry + CSV import per channel (Meta, Google, Instagram promoted)
-- Running totals: monthly spend, cost per lead, cost per booking, ROAS
+```
+contacts          — id, name, email, phone, agency, areas_served[], source, status, notes, tags[], consent_basis, unsubscribed
+outreach_emails   — id, contact_id, campaign_id, subject, body, status, is_followup, sent_at, opened_at, replied_at
+email_templates   — id, name, subject_template, body_template, language, variables_schema[]
+campaigns         — id, name, type, status, template, target_criteria, stats
+shoots            — id, contact_id, address, sq_ft, tier, base_price, rush_surcharge, travel_surcharge, total_price, status, scheduled_at, delivered_at, paid_at, matterport_url
+invoices          — id, shoot_id, contact_id, wave_invoice_id, amount, discount, subtotal, gst, qst, total, status, due_at, paid_at
+tours             — id, shoot_id, matterport_id, title, status, views, listing_id, archived_at
+listings          — id, address, mls_number, agent_name, contact_id, realtor_url, price, status, last_checked
+content_calendar  — id, platform, content_type, pillar, caption_fr, caption_en, media_url, scheduled_at, posted_at, status, engagement_metrics(jsonb)
+marketing_spend   — id, date, channel, campaign_name, amount_spent, impressions, clicks, leads_generated
+revenue_events    — id, source, contact_id, shoot_id, amount, date (manual attribution only)
+analytics_daily   — id, date(unique), emails_sent, emails_opened, replies, shoots_booked, revenue, ad_spend, instagram_followers, website_visits
+notes             — id, content, category, contact_id, created_at
+settings          — key(PK), value, updated_at
+cron_logs         — id, job_name, status, result_summary, ran_at, duration_ms
+action_items      — id, type, severity, title, description, related_entity_type, related_entity_id, related_url, is_resolved, is_dismissed, expires_at, source, data
+weekly_reports    — id, week_number, year, data_json, created_at
+expenses          — id, date, amount, gst_paid, qst_paid, category, description, vendor
+```
 
-### Revenue Attribution
-- Every shoot/payment linked to lead source
-- Revenue by source: pie chart + trend line
-- LTV per client over time
-- CAC by channel vs. revenue generated
+**Contact statuses** (pipeline stages): `new_lead → researched → first_email_sent → followup_sent → replied → meeting_booked → trial_shoot → paying_client → churned`
 
-### Marketing Widgets
-- Revenue MTD/QTD/YTD with trend
-- Ad spend vs. revenue overlay
-- Top 3 revenue sources
-- Instagram follower growth + engagement (manual entry)
-- Channel health cards: green/yellow/red based on cost per lead
+**Shoot statuses**: `booked → shot → processing → delivered → paid`
+
+**Content statuses**: `draft → scheduled → posted → analyzed`
 
 ---
 
-## MODULE 3: OPERATIONS & GROWTH
+## ENV VARS REQUIRED
 
-### Shoot Pipeline
-- Calendar + list view, status: Booked → Shot → Processing → Delivered → Paid
-- Auto-price from sq ft tier + surcharges
-- Delivery time tracking
-- Matterport URL linking
-
-### Matterport Slot Manager
-- Active vs. limit gauge
-- Sold listing flags from cron
-- Archive recommendations
-
-### Invoices & Revenue
-- Manual + Wave CSV import
-- Outstanding/overdue alerts
-- Tax tracking: GST + QST running totals
-- $30K threshold progress bar
-
-### Content Calendar (5 Pillars)
-- THE WORK / THE EDGE / THE PROCESS / THE PROOF / THE CULTURE
-- Calendar grid with pillar tags
-- FR + EN caption fields
-- Balance indicator across pillars
-- Post status + engagement tracking
-
-### Home Dashboard
-Single-glance business health: revenue, shoots, pipeline, slot usage, revenue vs spend trend, outreach funnel, upcoming shoots, action items/alerts, tax threshold.
-
----
-
-## MODULE 4: AUTOMATION ENGINE (BUILT-IN)
-
-### Cron Jobs (node-cron, registered on server start)
-
-| Job | Schedule | Action |
-|-----|----------|--------|
-| `listing-monitor` | Daily 2:00 AM | Check listing URLs for 3xx redirect (Centris sold signal) or "vendu" keyword. Mark sold, flag tour for archive. |
-| `followup-reminder` | Daily 9:00 AM | Contacts in "First Email Sent" with no reply after 7+ days → flag for follow-up. |
-| `analytics-snapshot` | Daily 11:59 PM | Aggregate day's emails, replies, shoots, revenue, spend → insert analytics_daily row. |
-| `tour-slot-check` | Daily 6:00 AM | Count active tours vs limit. Alert if >80%. |
-| `tax-threshold` | Monday 8:00 AM | Sum YTD revenue. Alert if approaching $30K. |
-| `invoice-overdue` | Daily 8:00 AM | Find unpaid invoices past due date. Create alerts. |
-
-### Cron Infrastructure
-```typescript
-// /lib/cron/index.ts — register on server start (instrumentation.ts or custom server)
-import cron from 'node-cron';
-
-export function registerCronJobs() {
-  cron.schedule('0 2 * * *', runListingMonitor);
-  cron.schedule('0 9 * * *', runFollowupReminder);
-  cron.schedule('59 23 * * *', runAnalyticsSnapshot);
-  cron.schedule('0 6 * * *', runTourSlotCheck);
-  cron.schedule('0 8 * * 1', runTaxThreshold);
-  cron.schedule('0 8 * * *', runInvoiceOverdue);
-}
 ```
-
-### Cron Logging
-Every run → `cron_logs` table (job_name, status, result_summary, ran_at, duration_ms). Dashboard `/settings/cron`: recent runs, success/fail, manual trigger buttons.
-
-### Listing Sold Detection
-```
-1. Fetch listing_url with redirect: 'manual'
-2. 3xx → sold (Centris redirects sold listings to "propriétés similaires")
-3. 200 → check body for "vendu" keyword (secondary signal)
-4. Sold → update listing status, flag tour for archiving
-5. Rate limit: 1 request per 2 seconds, rotate user-agent
-```
-
-### Webhook Endpoints
-```
-POST /api/webhooks/form-submission  — Formspree intake → create contact + note
-GET  /api/cron/trigger/[jobName]    — Manual trigger (auth required)
-POST /api/contacts/import           — CSV upload, parse, dedupe, insert
+NEXT_PUBLIC_SUPABASE_URL          — Supabase project URL
+NEXT_PUBLIC_SUPABASE_ANON_KEY     — Supabase anon key
+SUPABASE_SERVICE_ROLE_KEY         — Supabase service role key (server-only)
+ZOHO_SMTP_USER                    — Zoho email address (optional — email sending disabled without it)
+ZOHO_SMTP_PASSWORD                — Zoho app-specific password
 ```
 
 ---
 
-## MODULE 5: WEEKLY GROWTH REPORT (DATA-DRIVEN, NO AI)
+## CODING RULES
 
-### `/reports/weekly` — auto-generated Monday from analytics_daily
-
-1. **Revenue**: week total vs last week, MTD, progress toward goal
-2. **Outreach**: emails sent/opened/replied, reply rate trend, pipeline snapshot
-3. **Shoots**: completed, avg delivery time, slot usage
-4. **Marketing**: spend by channel, cost per lead, best/worst channel
-5. **Content**: posts published, pillar distribution, engagement totals
-6. **Alerts recap**: overdue invoices, sold listings, tax threshold, cold contacts
-
-API route: `/api/reports/weekly?week=YYYY-WW` → structured JSON. Stored in `weekly_reports` table. Clean, printable report page.
-
----
-
-## MODULE 6: SETTINGS
-
-1. **Profile** — Business info, logo
-2. **Pricing** — Editable tiers (used by shoot price calculator)
-3. **Email** — SMTP test, default signature, unsubscribe URL
-4. **Matterport** — Slot limit config
-5. **Goals** — Monthly revenue target, weekly outreach target, posting frequency
-6. **Cron Jobs** — Status, last run, manual triggers, enable/disable
-7. **Export** — CSV export of all data
-8. **Danger Zone** — Reset demo data, purge old logs
-
----
-
-## TECHNICAL REQUIREMENTS
-
-### Security
-- `.env.local` for all secrets (NEVER commit)
-- Supabase RLS on all tables
-- Single-user auth, no public registration
-- Rate limit API routes
-- Sanitize scraper data
-- Auth required on cron trigger endpoints
-
-### Performance
-- SSR for dashboard pages
-- Optimistic UI for CRM actions
-- Debounced search, paginated tables (50 rows)
-- Lazy-load charts, loading skeletons
-
-### Code Quality
-- TypeScript strict mode
-- Structure: `/app`, `/components`, `/lib`, `/hooks`, `/types`, `/lib/cron`
-- Reusable chart components
-- Error boundaries, toast notifications
-
----
-
-## COMPLIANCE
-
-- **CASL**: Implied consent, unsubscribe in every email, consent logged, one follow-up max
-- **Bill 96**: Client-facing = French-first. Dashboard = English OK (internal)
-- **GST/QST**: Track toward $30K threshold, alert when close
-- **Matterport**: Measurement disclaimer on deliverables
-- **Privacy**: CRM data internal only, never exposed publicly
-- **Realtor.ca**: Rate limit scraping, don't hammer
-
----
-
-## REMEMBER
-
-Build fast, ship ugly, iterate. No AI API costs, no external automation tools. CRM + outreach first (that's where revenue lives), then layer everything else. The infrastructure phase is OVER. This tool exists to SELL.
+- TypeScript strict — no `any` unless unavoidable and commented
+- Server components fetch data directly via `createClient()` from `lib/supabase/server`
+- Client components use `fetch("/api/...")` — never import server-side Supabase in client components
+- shadcn/ui for all form controls, dialogs, sheets
+- `spatia-label` class for uppercase tracking labels throughout
+- `font-heading` class for large numbers/titles
+- Toast notifications via `sonner` — import `toast` from `"sonner"`
+- All currency via `formatCurrency()` from `lib/pricing`
+- Paginated tables: 50–100 rows max, `.limit()` on queries
+- RLS enabled on all tables — use service role key in cron jobs (`getSupabaseAdmin()`)
+- CASL: every outreach email gets `UNSUBSCRIBE_LINE` appended in `lib/email.ts`
+- No external automation platforms — everything is Next.js API routes + node-cron

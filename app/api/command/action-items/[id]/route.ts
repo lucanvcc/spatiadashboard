@@ -11,9 +11,11 @@ export async function PATCH(
   if (!user) return NextResponse.json({ error: "unauthorized" }, { status: 401 })
 
   const { id } = await params
-  const body = await req.json() as {
-    action: "resolve" | "dismiss"
-    note?: string
+  let body: { action: "resolve" | "dismiss"; note?: string }
+  try {
+    body = await req.json()
+  } catch {
+    return NextResponse.json({ error: "Invalid JSON" }, { status: 400 })
   }
 
   if (!body.action || !["resolve", "dismiss"].includes(body.action)) {

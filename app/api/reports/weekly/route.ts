@@ -252,6 +252,60 @@ export async function GET(req: NextRequest) {
     }
   }
 
+  // ── Financial ───────────────────────────────────────────────────────────────
+  const now2 = new Date()
+  const year2 = now2.getFullYear()
+  const yearStart2 = `${year2}-01-01`
+
+  const [
+    { data: weekPaidInvoices },
+    { data: weekExpenses },
+    { data: outstandingInvoices },
+    { data: overdueInvoicesW },
+    { data: ytdInvoices },
+  ] = await Promise.all([
+    supabase
+      .from("invoices")
+      .select("total, gst, qst")
+      .eq("status", "paid")
+      .gte("paid_at", `${start}T00:00:00Z`)
+      .lte("paid_at", `${end}T23:59:59Z`),
+    supabase
+      .from("expenses")
+      .select("amount")
+      .gte("date", start)
+      .lte("date", end),
+    supabase.from("invoices").select("total").eq("status", "sent"),
+    supabase.from("invoices").select("total").eq("status", "overdue"),
+    supabase
+      .from("invoices")
+      .select("total, gst, qst")
+      .eq("status", "paid")
+      .gte("paid_at", yearStart2),
+  ])
+
+  const revenueWeek = (weekPaidInvoices ?? []).reduce((s, i) => s + (i.total ?? 0), 0)
+  const expensesWeek = (weekExpenses ?? []).reduce((s, e) => s + (e.amount ?? 0), 0)
+  const netProfitWeek = revenueWeek - expensesWeek
+  const outstandingTotal = (outstandingInvoices ?? []).reduce((s, i) => s + (i.total ?? 0), 0)
+  const overdueTotal = (overdueInvoicesW ?? []).reduce((s, i) => s + (i.total ?? 0), 0)
+  const ytdRevenue = (ytdInvoices ?? []).reduce((s, i) => s + (i.total ?? 0), 0)
+  const gstCollectedMtd = (ytdInvoices ?? []).reduce((s, i) => s + (i.gst ?? 0), 0)
+  const qstCollectedMtd = (ytdInvoices ?? []).reduce((s, i) => s + (i.qst ?? 0), 0)
+  const threshold30kPct = Math.min((ytdRevenue / 30000) * 100, 100)
+
+  const financial = {
+    revenue_week: revenueWeek,
+    expenses_week: expensesWeek,
+    net_profit_week: netProfitWeek,
+    outstanding_total: outstandingTotal,
+    overdue_total: overdueTotal,
+    gst_collected_mtd: gstCollectedMtd,
+    qst_collected_mtd: qstCollectedMtd,
+    ytd_revenue: ytdRevenue,
+    threshold_30k_pct: threshold30kPct,
+  }
+
   // ── Alerts ───────────────────────────────────────────────────────────────────
   const activeAlerts = await getActiveAlerts()
 
@@ -296,6 +350,7 @@ export async function GET(req: NextRequest) {
       pillar_distribution,
       total_engagement: totalEngagement,
     },
+    financial,
     alerts: activeAlerts,
     daily_sparklines: {
       revenue: days.map((d) => ({ date: d.date, value: d.revenue })),
