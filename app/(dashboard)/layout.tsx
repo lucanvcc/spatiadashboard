@@ -1,6 +1,7 @@
 import { Sidebar } from "@/components/layout/sidebar"
 import { Topbar } from "@/components/layout/topbar"
 import { KeyboardShortcuts } from "@/components/layout/keyboard-shortcuts"
+import { QuickCapture } from "@/components/layout/quick-capture"
 
 export default function DashboardLayout({
   children,
@@ -17,6 +18,7 @@ export default function DashboardLayout({
         <main className="flex-1 p-4 md:p-6">{children}</main>
       </div>
       <KeyboardShortcuts />
+      <QuickCapture />
     </div>
   )
 }

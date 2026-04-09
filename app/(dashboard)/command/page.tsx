@@ -17,8 +17,13 @@ import {
   TrendingDown,
   Zap,
   Flame,
+  Activity,
+  Target,
+  Layers,
 } from "lucide-react"
 import { ActionItemsPanel } from "@/components/command/action-items-panel"
+import { RevenueSpeedometerSVG } from "@/components/command/revenue-speedometer"
+import { WeeklyWins } from "@/components/command/weekly-wins"
 
 // ─── Data fetchers ────────────────────────────────────────────────────────────
 
@@ -294,6 +299,159 @@ async function getActivityFeed() {
   return events.slice(0, 50)
 }
 
+async function getMomentumData() {
+  const supabase = await createClient()
+  const now = new Date()
+  const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1).toISOString()
+  const since14 = new Date(now.getTime() - 14 * 86400000).toISOString()
+  const since30 = new Date(now.getTime() - 30 * 86400000).toISOString()
+  const dayOfMonth = now.getDate()
+  const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate()
+  const monthFraction = dayOfMonth / daysInMonth
+
+  const [
+    { data: recentEmails },
+    { data: shootsMtd },
+    { data: deliveredShoots },
+    { data: invoices30 },
+    { data: criticalItems },
+    { data: overdueInvoices },
+    { data: goalSetting },
+    { data: breakEvenSetting },
+    { data: expensesMtd },
+    { data: newContactsW },
+    { data: repliesW },
+    { data: paidW },
+    { data: toursDeliveredW },
+  ] = await Promise.all([
+    supabase.from("outreach_emails").select("sent_at")
+      .not("status", "eq", "draft").not("sent_at", "is", null).gte("sent_at", since14),
+    supabase.from("shoots").select("id, total_price, status, created_at").gte("created_at", startOfMonth),
+    supabase.from("shoots").select("id, status, updated_at, created_at")
+      .eq("status", "delivered").gte("updated_at", since30),
+    supabase.from("invoices").select("id, status, due_at, paid_at, total").gte("created_at", since30),
+    supabase.from("action_items").select("id")
+      .eq("severity", "critical").eq("is_resolved", false).eq("is_dismissed", false),
+    supabase.from("invoices").select("id, total").eq("status", "overdue"),
+    supabase.from("settings").select("value").eq("key", "monthly_revenue_goal").single(),
+    supabase.from("settings").select("value").eq("key", "monthly_break_even").single(),
+    supabase.from("expenses").select("amount").gte("date", startOfMonth.slice(0, 10)),
+    // Weekly wins data
+    supabase.from("contacts").select("id").gte("created_at", new Date(now.getTime() - 7 * 86400000).toISOString()),
+    supabase.from("outreach_emails").select("id").eq("status", "replied")
+      .gte("replied_at", new Date(now.getTime() - 7 * 86400000).toISOString()),
+    supabase.from("invoices").select("total").eq("status", "paid")
+      .gte("paid_at", new Date(now.getTime() - 7 * 86400000).toISOString()),
+    supabase.from("shoots").select("id").eq("status", "delivered")
+      .gte("updated_at", new Date(now.getTime() - 7 * 86400000).toISOString()),
+  ])
+
+  // Momentum pillars
+  const sentDates = new Set((recentEmails ?? []).map((e) => e.sent_at!.slice(0, 10)))
+  const consistencyScore = Math.round((sentDates.size / 14) * 25)
+
+  const revGoal = parseFloat(goalSetting?.value ?? "3000")
+  const completedShoots = (shootsMtd ?? []).filter((s) =>
+    ["shot", "processing", "delivered", "paid"].includes(s.status)
+  )
+  const shootRevenueMtd = completedShoots.reduce((s, sh) => s + (sh.total_price ?? 0), 0)
+  const expectedRevenuePace = revGoal * monthFraction
+  const bookingScore = expectedRevenuePace > 0
+    ? Math.min(Math.round((shootRevenueMtd / expectedRevenuePace) * 25), 25)
+    : 12
+
+  const deliverySpeeds = (deliveredShoots ?? []).map((s) => {
+    return (new Date(s.updated_at).getTime() - new Date(s.created_at).getTime()) / 86400000
+  }).filter((d) => d >= 0 && d < 30)
+  let deliveryScore = 20
+  if (deliverySpeeds.length > 0) {
+    const avg = deliverySpeeds.reduce((a, b) => a + b, 0) / deliverySpeeds.length
+    if (avg < 1) deliveryScore = 25
+    else if (avg < 2) deliveryScore = 23
+    else if (avg < 3) deliveryScore = 20
+    else if (avg < 4) deliveryScore = 15
+    else if (avg < 5) deliveryScore = 8
+    else deliveryScore = 0
+  }
+
+  const dueInvoices = (invoices30 ?? []).filter((i) => i.due_at)
+  const paidOnTime = dueInvoices.filter((i) => {
+    if (i.status !== "paid" || !i.paid_at || !i.due_at) return false
+    return new Date(i.paid_at).getTime() <= new Date(i.due_at).getTime() + 14 * 86400000
+  })
+  const collectionScore = dueInvoices.length > 0
+    ? Math.round((paidOnTime.length / dueInvoices.length) * 25)
+    : 20
+
+  const momentum = Math.min(consistencyScore + bookingScore + deliveryScore + collectionScore, 100)
+
+  // Live Pulse
+  const criticalCount = criticalItems?.length ?? 0
+  const overdueCount = overdueInvoices?.length ?? 0
+  const overdueAmount = (overdueInvoices ?? []).reduce((s, i) => s + i.total, 0)
+  let pulse: "green" | "yellow" | "red" = "green"
+  if (criticalCount > 0 || overdueCount > 2 || momentum < 40) pulse = "red"
+  else if (momentum < 70 || overdueCount > 0 || overdueAmount > 500) pulse = "yellow"
+
+  // Break-even
+  const breakEvenTarget = parseFloat(breakEvenSetting?.value ?? "300")
+  const expensesThisMonth = (expensesMtd ?? []).reduce((s, e) => s + e.amount, 0)
+  const fixedCosts = Math.max(breakEvenTarget, expensesThisMonth)
+  const avgShootPrice = completedShoots.length > 0
+    ? completedShoots.reduce((s, sh) => s + (sh.total_price ?? 175), 0) / completedShoots.length
+    : 175
+  const shootsNeeded = Math.ceil(fixedCosts / avgShootPrice)
+  const shootsDone = completedShoots.length
+
+  // Pipeline value: booked shoots + outstanding invoices
+  const bookedShootValue = (shootsMtd ?? [])
+    .filter((s) => ["booked", "shot", "processing"].includes(s.status))
+    .reduce((s, sh) => s + (sh.total_price ?? 0), 0)
+  const outstandingInvoiceValue = (invoices30 ?? [])
+    .filter((i) => ["sent", "overdue"].includes(i.status))
+    .reduce((s, i) => s + i.total, 0)
+  const pipelineValue = bookedShootValue + outstandingInvoiceValue
+
+  // Revenue speedometer
+  const revenueMtd = (shootsMtd ?? [])
+    .filter((s) => s.status === "paid")
+    .reduce((s, sh) => s + (sh.total_price ?? 0), 0)
+  // Also get from paid invoices
+  const paidInvoicesMtd = (invoices30 ?? [])
+    .filter((i) => i.status === "paid" && i.paid_at && new Date(i.paid_at) >= new Date(startOfMonth))
+    .reduce((s, i) => s + i.total, 0)
+  const revenueForGauge = Math.max(revenueMtd, paidInvoicesMtd)
+  const paceTarget = revGoal * monthFraction
+
+  // Weekly wins
+  type Win = { label: string; value: string; emoji: string }
+  const wins: Win[] = []
+  const newContactsCount = newContactsW?.length ?? 0
+  const repliesCount = repliesW?.length ?? 0
+  const paidAmount = (paidW ?? []).reduce((s, i) => s + i.total, 0)
+  const toursDelivered = toursDeliveredW?.length ?? 0
+  const shootsBookedMtd = (shootsMtd ?? []).filter(s => s.status !== "paid").length
+
+  if (paidAmount > 0) wins.push({ emoji: "💰", value: formatCurrency(paidAmount), label: "encaissés" })
+  if (toursDelivered > 0) wins.push({ emoji: "📦", value: String(toursDelivered), label: toursDelivered > 1 ? "tours livrés" : "tour livré" })
+  if (repliesCount > 0) wins.push({ emoji: "✉️", value: String(repliesCount), label: repliesCount > 1 ? "réponses reçues" : "réponse reçue" })
+  if (newContactsCount > 0) wins.push({ emoji: "👤", value: String(newContactsCount), label: newContactsCount > 1 ? "nouveaux contacts" : "nouveau contact" })
+  if (shootsBookedMtd > 0 && wins.length < 4) wins.push({ emoji: "📷", value: String(shootsBookedMtd), label: shootsBookedMtd > 1 ? "shoots en cours" : "shoot en cours" })
+
+  return {
+    momentum,
+    pulse,
+    shootsNeeded,
+    shootsDone,
+    fixedCosts,
+    pipelineValue,
+    revenueForGauge,
+    revGoal,
+    paceTarget,
+    wins,
+  }
+}
+
 async function getOutreachStreak() {
   const supabase = await createClient()
   // Look back up to 60 days
@@ -446,30 +604,134 @@ function timeAgo(iso: string) {
 // ─── Page ────────────────────────────────────────────────────────────────────
 
 export default async function CommandPage() {
-  const [quickStats, scoreboard, activityFeed, outreachStreak] = await Promise.all([
+  const [quickStats, scoreboard, activityFeed, outreachStreak, momentumData] = await Promise.all([
     getQuickStats(),
     getScoreboard(),
     getActivityFeed(),
     getOutreachStreak(),
+    getMomentumData(),
   ])
 
   const revDelta = scoreboard.revenue.last_week > 0
     ? ((scoreboard.revenue.this_week - scoreboard.revenue.last_week) / scoreboard.revenue.last_week) * 100
     : null
 
+  const pulseColor = {
+    green: "bg-emerald-400",
+    yellow: "bg-amber-400",
+    red: "bg-red-400",
+  }[momentumData.pulse]
+
+  const pulseLabel = {
+    green: "tout est ok",
+    yellow: "attention requise",
+    red: "action nécessaire",
+  }[momentumData.pulse]
+
   return (
     <div className="space-y-5 max-w-7xl">
       {/* Header */}
       <div className="flex items-center justify-between">
-        <div>
-          <h1 className="font-heading text-2xl tracking-tight">command center</h1>
-          <p className="text-muted-foreground text-xs mt-0.5 spatia-label">
-            {new Date().toLocaleDateString("fr-CA", { weekday: "long", day: "numeric", month: "long", year: "numeric" })}
-          </p>
+        <div className="flex items-center gap-3">
+          {/* Live pulse dot */}
+          <div className="relative flex items-center justify-center w-5 h-5" title={pulseLabel}>
+            <span className={`absolute w-3 h-3 rounded-full ${pulseColor} opacity-30 animate-ping`} />
+            <span className={`relative w-2 h-2 rounded-full ${pulseColor}`} />
+          </div>
+          <div>
+            <h1 className="font-heading text-2xl tracking-tight">command center</h1>
+            <p className="text-muted-foreground text-xs mt-0.5 spatia-label">
+              {new Date().toLocaleDateString("fr-CA", { weekday: "long", day: "numeric", month: "long", year: "numeric" })}
+              {" · "}
+              <span className={momentumData.pulse === "green" ? "text-emerald-400/70" : momentumData.pulse === "red" ? "text-red-400/70" : "text-amber-400/70"}>
+                {pulseLabel}
+              </span>
+            </p>
+          </div>
         </div>
         <div className="flex items-center gap-1.5 px-2 py-1 border border-border/50 text-muted-foreground">
           <Zap size={11} strokeWidth={1.5} />
           <span className="spatia-label text-xs">⌘K pour lancer une commande</span>
+        </div>
+      </div>
+
+      {/* Momentum + Pipeline + Break-even strip */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-px border border-border bg-border/50">
+        {/* Momentum score */}
+        <div className="bg-card px-4 py-3 space-y-1">
+          <div className="flex items-center gap-1.5">
+            <Activity size={10} strokeWidth={1.5} className="text-muted-foreground" />
+            <p className="spatia-label text-[10px] text-muted-foreground uppercase tracking-widest">momentum</p>
+          </div>
+          <div className="flex items-baseline gap-1.5">
+            <p className={`font-mono text-xl font-medium ${
+              momentumData.momentum >= 70 ? "text-emerald-400" :
+              momentumData.momentum >= 40 ? "text-amber-400" : "text-red-400"
+            }`}>
+              {momentumData.momentum}
+            </p>
+            <span className="spatia-label text-[10px] text-muted-foreground">/100</span>
+          </div>
+          {/* Mini progress bar */}
+          <div className="h-0.5 bg-border/40">
+            <div
+              className={`h-full transition-all ${
+                momentumData.momentum >= 70 ? "bg-emerald-400/60" :
+                momentumData.momentum >= 40 ? "bg-amber-400/60" : "bg-red-400/60"
+              }`}
+              style={{ width: `${momentumData.momentum}%` }}
+            />
+          </div>
+        </div>
+
+        {/* Pipeline value */}
+        <div className="bg-card px-4 py-3 space-y-1">
+          <div className="flex items-center gap-1.5">
+            <Layers size={10} strokeWidth={1.5} className="text-muted-foreground" />
+            <p className="spatia-label text-[10px] text-muted-foreground uppercase tracking-widest">pipeline $</p>
+          </div>
+          <p className="font-mono text-xl font-medium text-foreground">
+            {formatCurrency(momentumData.pipelineValue)}
+          </p>
+          <p className="spatia-label text-[10px] text-muted-foreground">en attente de paiement</p>
+        </div>
+
+        {/* Break-even tracker */}
+        <div className="bg-card px-4 py-3 space-y-1">
+          <div className="flex items-center gap-1.5">
+            <Target size={10} strokeWidth={1.5} className="text-muted-foreground" />
+            <p className="spatia-label text-[10px] text-muted-foreground uppercase tracking-widest">seuil rentabilité</p>
+          </div>
+          <div className="flex items-baseline gap-1.5">
+            <p className={`font-mono text-xl font-medium ${
+              momentumData.shootsDone >= momentumData.shootsNeeded ? "text-emerald-400" : "text-foreground"
+            }`}>
+              {momentumData.shootsDone}/{momentumData.shootsNeeded}
+            </p>
+          </div>
+          <p className="spatia-label text-[10px] text-muted-foreground">
+            {momentumData.shootsDone >= momentumData.shootsNeeded
+              ? "seuil atteint ce mois"
+              : `${momentumData.shootsNeeded - momentumData.shootsDone} shoots pour couvrir les coûts`}
+          </p>
+        </div>
+
+        {/* Revenue pace */}
+        <div className="bg-card px-4 py-3 space-y-1">
+          <div className="flex items-center gap-1.5">
+            <TrendingUp size={10} strokeWidth={1.5} className="text-muted-foreground" />
+            <p className="spatia-label text-[10px] text-muted-foreground uppercase tracking-widest">cadence revenu</p>
+          </div>
+          <p className="font-mono text-xl font-medium">
+            {formatCurrency(momentumData.revenueForGauge)}
+          </p>
+          <p className={`spatia-label text-[10px] ${
+            momentumData.revenueForGauge >= momentumData.paceTarget ? "text-emerald-400/70" : "text-amber-400/70"
+          }`}>
+            {momentumData.paceTarget > 0
+              ? `cible: ${formatCurrency(Math.round(momentumData.paceTarget))}`
+              : `objectif: ${formatCurrency(momentumData.revGoal)}`}
+          </p>
         </div>
       </div>
 
@@ -585,6 +847,66 @@ export default async function CommandPage() {
             <div className="space-y-3">
               <p className="spatia-label text-[10px] text-muted-foreground uppercase tracking-widest border-b border-border/40 pb-1">meta ads</p>
               <ScoreCard label="pub" thisWeek={scoreboard.meta.spend_this_week} lastWeek={scoreboard.meta.spend_last_week} format="currency" isPositiveBetter={false} />
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Revenue Speedometer + Weekly Wins */}
+      <div className="grid lg:grid-cols-2 gap-4">
+        {/* Speedometer */}
+        <div className="border border-border bg-card p-5 space-y-3">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <TrendingUp size={13} strokeWidth={1.5} className="text-muted-foreground" />
+              <p className="spatia-label text-xs text-muted-foreground">vitesse revenu — objectif mensuel</p>
+            </div>
+            <span className="spatia-label text-[10px] text-muted-foreground">
+              {momentumData.revGoal > 0 ? `${Math.round((momentumData.revenueForGauge / momentumData.revGoal) * 100)}%` : "—"}
+            </span>
+          </div>
+          <div className="flex items-center justify-center">
+            <RevenueSpeedometerSVG
+              current={momentumData.revenueForGauge}
+              goal={momentumData.revGoal}
+              paceTarget={momentumData.paceTarget}
+            />
+          </div>
+          <div className="flex items-center justify-between text-xs">
+            <span className="spatia-label text-muted-foreground">
+              {formatCurrency(momentumData.revenueForGauge)} réalisé
+            </span>
+            <span className="spatia-label text-muted-foreground">
+              obj. {formatCurrency(momentumData.revGoal)}
+            </span>
+          </div>
+        </div>
+
+        {/* Weekly Wins */}
+        <div className="border border-border bg-card p-5 space-y-3 flex flex-col">
+          <div className="flex items-center gap-2">
+            <Zap size={13} strokeWidth={1.5} className="text-muted-foreground" />
+            <p className="spatia-label text-xs text-muted-foreground">cette semaine</p>
+          </div>
+          {momentumData.wins.length > 0 ? (
+            <div className="flex-1 flex flex-col justify-center space-y-2">
+              <WeeklyWins wins={momentumData.wins} />
+              {/* All wins list */}
+              {momentumData.wins.length > 1 && (
+                <div className="space-y-1 mt-2">
+                  {momentumData.wins.map((w, i) => (
+                    <div key={i} className="flex items-center gap-2">
+                      <span className="text-sm leading-none">{w.emoji}</span>
+                      <span className="font-mono text-sm text-foreground">{w.value}</span>
+                      <span className="spatia-label text-xs text-muted-foreground">{w.label}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          ) : (
+            <div className="flex-1 flex items-center justify-center">
+              <p className="text-sm text-muted-foreground">Aucune victoire cette semaine encore — en route.</p>
             </div>
           )}
         </div>
